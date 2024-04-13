@@ -2,10 +2,11 @@ creates_covariates_on_mesh = function(h){
   
   library(MetricGraph)
   library(dplyr)
+  library(here)
   # loading the data
-  load("Graph_objects/graph_construction_28_03_2024partialtomtomwhichlonglatsf.RData")
-  load("Data_files/data_day7142128_hour13_with_no_consecutive_zeros_partialtomtom_graph_processed.RData")
-  load("Data_files/stops_data_on_graph_partialtomtom.RData")
+  load(here("Graph_objects/graph_construction_28_03_2024partialtomtomwhichlonglatsf.RData"))
+  load(here("Data_files/data_day7142128_hour13_with_no_consecutive_zeros_partialtomtom_graph_processed.RData"))
+  load(here("Data_files/stops_data_on_graph_partialtomtom.RData"))
   
   # length of each edge
   edge_length = sf_graph$get_edge_lengths()
@@ -664,7 +665,7 @@ creates_covariates_on_mesh = function(h){
                                                           cov_obs = cov_obs)
   
   
-  save(data_on_mesh_with_covariates, file = "Data_files/data_on_mesh_with_covariates_partialtomtom.RData")
+  save(data_on_mesh_with_covariates, file = here("Data_files/data_on_mesh_with_covariates_partialtomtom.RData"))
   
   
 }

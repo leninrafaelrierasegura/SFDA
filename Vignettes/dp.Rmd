@@ -7,6 +7,7 @@ output:
     mathjax: "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
     highlight: pygments
     theme: flatly
+    code_folding: show
     toc: true
     toc_float:
       collapsed: true
@@ -46,7 +47,8 @@ knitr::opts_chunk$set(
   eval = FALSE,       # Evaluate R code chunks
   cache = TRUE,       # Enable caching of R code chunks for faster rendering
   fig.align = "center",
-  out.width = "100%"
+  out.width = "100%",
+  retina = 2
 )
 
 #set.seed(1982)
@@ -72,8 +74,9 @@ We show all the scripts used to build the graph and generate the data up to this
 
 2. It produces `Data_files/january_with_ID.RData`.
 
+### Raw code
 
-```{r}
+```{r, class.source = "fold-hide"}
 library(dplyr)
 library(sf)
 
@@ -110,7 +113,7 @@ save(january, file = "Data_files/january_with_ID.RData")
 
 ### Raw code
 
-```{r}
+```{r, class.source = "fold-hide"}
 library(MetricGraph)
 library(dplyr)
 library(TSstudio)
@@ -207,7 +210,7 @@ ggplot() + geom_sf(data = df, aes(color = speed)) + theme_minimal()
 
 ### Raw code
 
-```{r}
+```{r, class.source = "fold-hide"}
 library(sf)
 library(mapview)
 library(jsonlite)
@@ -292,7 +295,7 @@ ggplot() + geom_sf(data = tomtom, aes(color = SpeedLimit)) + theme_minimal()
 
 ### Raw code
 
-```{r, eval = FALSE}
+```{r, class.source = "fold-hide"}
 library(sf)
 library(dplyr)
 library(tidyr)
@@ -402,7 +405,7 @@ sf_graph$plot(vertex_size = 0,
 
 ### Raw code
 
-```{r}
+```{r, class.source = "fold-hide"}
 library(mapview)
 library(dplyr)
 library(plotly)
@@ -452,7 +455,7 @@ datapoints$highway |> table() |> as.data.frame() |> paged_table()
 
 ### Raw code
 
-```{r}
+```{r, class.source = "fold-hide"}
 library(MetricGraph)
 library(dplyr)
 library(tidyr)
@@ -524,7 +527,7 @@ traffic_stops$highway |> table() |> as.data.frame() |> paged_table()
 
 ### Raw code
 
-```{r covariates-for-graph-data}
+```{r covariates-for-graph-data, class.source = "fold-hide"} 
 library(MetricGraph)
 library(dplyr)
 # loading the data
@@ -1222,7 +1225,7 @@ ggplot() + geom_point(data = data_on_graph_with_covariates, aes(x = .coord_x, y 
 
 ### Raw code
 
-```{r covariates-for-graph-mesh}
+```{r covariates-for-graph-mesh, class.source = "fold-hide"}
 creates_covariates_on_mesh = function(h){
   
   library(MetricGraph)
