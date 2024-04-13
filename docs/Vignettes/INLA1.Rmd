@@ -1,0 +1,272 @@
+---
+title: "INLA 1"
+author: "Lenin Rafael Riera Segura"
+date: "Created: 12-04-2024. Last modified: `r format(Sys.time(), '%d-%m-%Y.')`"
+output:
+  html_document:
+    mathjax: "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
+    highlight: pygments
+    theme: flatly
+    toc: true
+    toc_float:
+      collapsed: true
+      smooth_scroll: true
+    number_sections: true
+    fig_caption: true
+always_allow_html: true
+---
+```{css}
+body .main-container {
+  max-width: 100% !important;
+  width: 100% !important;
+}
+body {
+  max-width: 100% !important;
+}
+
+body, td {
+   font-size: 16px;
+}
+code.r{
+  font-size: 14px;
+}
+pre {
+  font-size: 14px
+}
+```
+
+
+```{r}
+knitr::opts_chunk$set(message = FALSE, 
+                      warning = FALSE,
+                      fig.align = "center",
+                      out.width = "100%"
+                      )
+set.seed(1982)
+```
+
+```{r}
+library(INLA)
+# Load the data
+data(Seeds)
+
+# Create a data frame
+df <- data.frame(y = Seeds$r, Ntrials = Seeds$n, Seeds[, 3:5])
+
+# explore the data
+df |> head() |> knitr::kable(caption = "Data")
+```
+
+## Model specification
+
+The model specification is 
+
+$$
+y_i\sim\text{Binomial}\left(N_i, p_i\right)\label{eq1}\tag{A}
+$$
+
+$$
+p_i = \text{invlogit}(\eta_i) =  \frac{\exp(\eta_i)}{1+\exp(\eta_i)} =
+\frac{1}{1+\exp(-\eta_i)}\qquad \left(\text{i.e., }\eta_i = \text{logit}(p_i) =\log\left(\frac{p_i}{1-p_i}\right)
+\right)
+$$
+
+$$
+\eta_i = \beta_0 + \beta_1x_{1i} + \beta_2x_{2i} +v_i
+$$
+
+$$
+\beta_i \sim \text{N}(0, 1000)
+$$
+
+$$
+v_i\sim\text{N}(0,\sigma^2)
+$$
+$$
+\sigma\sim\text{Exp}(\lambda) \qquad \left(\text{i.e., }\pi(\sigma) = \lambda e^{-\lambda\sigma}\right)
+$$
+
+$$
+\lambda \text{ is such that } \pi(\sigma>1) = 0.01\qquad\left(\text{i.e., }0.01 = \pi(\sigma>1) = 1- \pi(\sigma\leq1) = e^{-\lambda}\implies \lambda = -\dfrac{\log(0.01)}{1}\approx4.6\right)\label{eq2}\tag{B}
+$$
+
+
+Expressions from $\eqref{eq1}$ to $\eqref{eq2}$ define the model.
+
+- $v_i$ are the random effects. 
+- $\pi(\sigma>1) = 0.01$ corresponds exactly to `list(theta = list(prior = "pc.prec", param = c(1,0.01)))`
+- $x_{1i}$ corresponds to `x1`
+- $x_{2i}$ corresponds to `x2`
+- $v_i$ corresponds to `f()`
+- `model = "iid"` tells `inla()` we are using random effects
+- INLA does not deal with $\sigma^2$ but with $\tau = \sigma^{-2}$. Therefore, using the change of variable formula, we can see that $\pi(\tau) = \dfrac{\lambda}{2}\tau^{-3/2}e^{-\lambda \tau^{-1/2}}$. Of course, $\pi(\sigma) = \pi(\tau)\left|\dfrac{d\tau}{d\sigma}\right| = \lambda e^{-\lambda\sigma}$ and we define $x=\log(\tau)$, then $\pi(x) = \pi(\tau)\left|\dfrac{d\tau}{dx}\right| = \dfrac{\lambda}{2}\exp\left(-\dfrac{x}{2} - \lambda \exp\left(-\dfrac{x}{2}\right)\right)$
+- variable `plate` contains the identity of each observations. That is, `plate = 1:nrow(df)`.
+
+
+The `logit()` function is not referenced as `"logit"` in `control.family = list(control.link = list(model = "logit"))`. This `"logit"` is an option from INLA.
+
+```{r}
+logit <- function(p){log(p/(1-p))}
+invlogit <- function(x){exp(x)/(1 + exp(x))}
+```
+
+
+```{r}
+# call to inla
+formula1 = y ~ x1 + x2 + f(plate, 
+                           model = "iid",  
+                           hyper = list(theta = list(prior = "pc.prec",
+                                                     param = c(1,0.01))))
+res1 = inla(formula = formula1, 
+            data = df, 
+            family = "binomial",
+            Ntrials = Ntrials, 
+            control.family = list(control.link = list(model = "logit")),
+            control.predictor = list(compute = TRUE, link = 1)) 
+```
+
+## SUMMARY
+
+Here we show how to read the summary
+
+```{r}
+#str(res1, 1)
+summary(res1)
+```
+
+```{r}
+res1$summary.random$plate |> head() |> knitr::kable(format = "markdown", caption = "Summary for the random effects $v_i$. Keep in mind that each of the $v_i$ has a marginal posterior distribution")
+
+res1$summary.fitted.values |> head() |> knitr::kable(format = "markdown", caption = "Summary for the fitted values $p_i$. Keep in mind that each of the $p_i$ has a marginal posterior distribution")
+
+res1$summary.linear.predictor |> head() |> knitr::kable(format = "markdown", caption = "Summary for the linear predictors $\\eta_i$. Keep in mind that each of the $\\eta_i$ has a marginal posterior distribution")
+```
+
+```{r}
+data.frame(p = res1$summary.fitted.values$mean, 
+           eta = res1$summary.linear.predictor$mean, 
+           p.from.eta = invlogit(res1$summary.linear.predictor$mean),
+           eta.from.p = logit(res1$summary.fitted.values$mean)) |>
+  head() |>
+  knitr::kable(format = "markdown", caption = "This shows that `res1$summary.fitted.values` corresponds to the variable ($p_i$) related to the linear predictor ($\\eta_i$) via the link function (`logit()`), and `res1$summary.linear.predictor` corresponds to the linear predictor ($\\eta_i$)")
+
+```
+
+
+
+```{r}
+# betas
+res1$summary.fixed |> head() |> knitr::kable(format = "markdown", caption = "Summary for the fixed effects")
+```
+
+
+```{r}
+# hyperparameters
+rbind(res1$summary.hyperpar, res1$internal.summary.hyperpar, "exp(Log precision for plate)" = exp(res1$internal.summary.hyperpar)) |> 
+  knitr::kable(format = "markdown", caption = "Summary for the hyperparameters")
+```
+
+
+::: {.alert .alert-info}
+This is how the output of `inla()` corresponds to our model specification.
+
+- $p_i$ = `res1$summary.fitted.values` (just the summary, not the whole the marginal posterior)
+
+- $\eta_i$ = `res1$summary.linear.predictor` (just the summary, not the whole the marginal posterior)
+
+- $\beta_i$ = `res1$summary.fixed` (just the summary, not the whole the marginal posterior)
+
+- $\tau$ = `res1$summary.hyperpar` (just the summary, not the whole the marginal posterior)
+:::
+
+## MARGINAL POSTERIOR
+
+
+### For the fixed effects
+
+Let us get the marginal posterior for $\beta_1$. No transformation is needed in this case.
+
+```{r}
+marginal.posterior.beta1.few = res1$marginals.fixed$x1 # we just get a few
+marginal.posterior.beta1.all = inla.tmarginal(fun = function(x) x, marginal = res1$marginals.fixed$x1) # we get more
+# let us check
+data.frame(mean.from.summary = res1$summary.fixed$mean[2], 
+           mean.from.marginal.posterior.few = mean(marginal.posterior.beta1.few[,1]),
+           mean.from.marginal.posterior.all = mean(marginal.posterior.beta1.all[,1])) |> t() |>
+  knitr::kable(format = "markdown", caption = "Checking that we are getting the marginal posterior correctly")
+```
+
+
+
+```{r}
+plot(marginal.posterior.beta1.all, type = "p", xlab = expression(beta[1]), ylab = "Probability density", col = "red")
+points(marginal.posterior.beta1.few, col = "blue")
+legend("topleft", pch = 1, col = c("red", "blue"), legend = c("all samples", "few samples"))
+```
+
+
+
+
+To get the marginal posterior in a meaningful scale, we should change `fun` from `inla.tmarginal(fun, marginal)` as appropriate.
+
+
+### For the hyperparameters
+
+Recall that `inla()` works with precision and that the internal parameters are in `log()` scale. So if we want the marginal posterior for $\sigma$ we need to use a transformation as appropriate.
+
+
+Recall that $\tau = \sigma^{-2}$.
+
+So if we let $\tau$  = `res1$marginals.hyperpar$Precision for plate`, then to get $\sigma = \tau^{-1/2}$, we need to use the transformation `fun(x) = x^(-1/2)`.
+
+If we let $\log(\tau)$  = `res1$internal.marginals.hyperpar$Log precision for plate`, then to get $\sigma = \tau^{-1/2}$, we need to use the transformation `fun(x) = e^(-x/2)`.
+
+
+```{r}
+# posterior of sigma
+marginal.posterior.sigma.from.tau = inla.tmarginal(fun = function(x) x^(-0.5), marginal = res1$marginals.hyperpar$`Precision for plate`)
+marginal.posterior.sigma.from.log.tau = inla.tmarginal(fun = function(x) exp(-x/2), marginal = res1$internal.marginals.hyperpar$`Log precision for plate`)
+
+plot(marginal.posterior.sigma.from.tau, type = "p", xlab = expression(sigma[iid]), ylab = "Probability density", col = "red")
+points(marginal.posterior.sigma.from.log.tau, col = "blue")
+legend("topright", pch = 1, col = c("red", "blue"), legend = c("sigma from tau", "sigma from log tau"))
+```
+
+So if we let $\tau$  = `res1$marginals.hyperpar$Precision for plate`, then to get $\tau$, we need to use the transformation `fun(x) = x`.
+
+If we let $\log(\tau)$  = `res1$internal.marginals.hyperpar$Log precision for plate`, then to get $\tau$, we need to use the transformation `fun(x) = e^x`.
+
+
+```{r}
+# posterior of tau
+marginal.posterior.tau.from.prec = inla.tmarginal(fun = function(x) x, marginal = res1$marginals.hyperpar$`Precision for plate`)
+marginal.posterior.tau.from.log.prec = inla.tmarginal(fun = function(x) exp(x), marginal = res1$internal.marginals.hyperpar$`Log precision for plate`)
+
+plot(marginal.posterior.tau.from.prec, type = "p", xlab = expression(tau), ylab = "Probability density", col = "red")
+points(marginal.posterior.tau.from.log.prec, col = "blue")
+legend("topright", pch = 1, col = c("red", "blue"), legend = c("tau from prec", "tau from log prec"))
+```
+
+```{r}
+mean(marginal.posterior.tau.from.prec[,1])
+mean(marginal.posterior.tau.from.log.prec[,1])
+mean(res1$marginals.hyperpar$`Precision for plate`[,1])
+mean(exp(res1$internal.marginals.hyperpar$`Log precision for plate`[,1]))
+```
+
+
+### For the random effects
+
+```{r}
+m.plate.7 = inla.tmarginal(fun = function(x) x, marginal = res1$marginals.random$plate$index.7)
+plot(m.plate.7, type="l", xlab = "marginal plate nr 7", ylab = "Probability density")
+```
+
+Here are different ways to get $\eta_7 = \beta_0 + \beta_1x_{17} + \beta_2x_{27} + v_7$
+
+```{r}
+res1$summary.linear.predictor$mean[7]
+res1$summary.fixed$mean[1] + res1$summary.fixed$mean[2]*df[7,3] + res1$summary.fixed$mean[3]*df[7,4] + mean(res1$marginals.random$plate$index.7[,1])
+res1$summary.fixed$mean[1] + res1$summary.fixed$mean[2]*df[7,3] + res1$summary.fixed$mean[3]*df[7,4] + res1$summary.random$plate$mean[7]
+```
+

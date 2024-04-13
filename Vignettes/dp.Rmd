@@ -101,6 +101,7 @@ january =  raw %>%
 save(january, file = "Data_files/january_with_ID.RData")
 ```
 
+
 # Remove consecutive zero speed observations
 
 1. This file is named `Preprocessing/19Remove_zero_speed_for_long_periods.R` and takes `Data_files/january_with_ID.RData` and removes consecutive zero speed observations (when the bus has stopped for a long period). 

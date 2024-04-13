@@ -9,6 +9,16 @@ navbar:
       href: about.html
     - text: "Preprocessing"
       href: Vignettes/dp.html
+    - text: "INLA priors"
+      menu:
+        - text: "INLA 1"
+          href: Vignettes/INLA1.html
+        - text: "INLA 2"
+          href: Vignettes/INLA2.html
+        - text: "INLA 3"
+          href: Vignettes/INLA3.html
+        - text: "INLA 4"
+          href: Vignettes/INLA4.html
     - text: "Models"
       menu:
         - text: "Model 1"

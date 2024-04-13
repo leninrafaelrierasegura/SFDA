@@ -1,0 +1,190 @@
+---
+title: "INLA 4"
+author: "Lenin Rafael Riera Segura"
+date: "Created: 12-04-2024. Last modified: `r format(Sys.time(), '%d-%m-%Y.')`"
+output:
+  html_document:
+    mathjax: "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
+    highlight: pygments
+    theme: flatly
+    toc: true
+    toc_float:
+      collapsed: true
+      smooth_scroll: true
+    number_sections: true
+    fig_caption: true
+always_allow_html: true
+---
+```{css}
+body .main-container {
+  max-width: 100% !important;
+  width: 100% !important;
+}
+body {
+  max-width: 100% !important;
+}
+
+body, td {
+   font-size: 16px;
+}
+code.r{
+  font-size: 14px;
+}
+pre {
+  font-size: 14px
+}
+```
+
+
+```{r}
+knitr::opts_chunk$set(message = FALSE, 
+                      warning = FALSE, 
+                      echo = TRUE, 
+                      include = TRUE,
+                      fig.align = "center",
+                      out.width = "100%"
+                      )
+set.seed(1982)
+```
+
+
+```{r}
+library(INLA)
+library(here)
+```
+
+
+Consider the AR(1) process
+
+
+$$
+u_1 \sim \text{N}(0, (\tau_u(1-\rho^2))^{-1}), \qquad u_t = \rho u_{t-1} + \epsilon_t, \qquad \epsilon_t\sim \text{N}(0, \tau_u^{-1} = \sigma_u^2) \qquad |\rho|<1\qquad
+\text{or}\qquad u_t - \rho u_{t-1} \sim \text{N}(0, \tau_u^{-1} = \sigma_u^2) 
+$$
+
+$$
+E(u_t) = 0,\qquad V(u_t) = \gamma(0) = (\tau_u(1-\rho^2))^{-1}, \qquad \gamma(h) = \rho^{|h|}(\tau_u(1-\rho^2))^{-1}
+$$
+
+The marginal precision is $\kappa = \tau_u(1-\rho^2)$, which is just $\dfrac{1}{V(u_t)}$. The marginal variance is just the variance of the process!. Internally, INLA defines $\theta_1 = \log(\kappa)$ and $\theta_2 = \log\left(\dfrac{1+\rho}{1-\rho}\right)$.
+
+
+The default prior for $\theta_1$ is loggamma with parameters 1 and 5e-05, i.e., the prior for $\kappa$ is gamma. The default prior for $\theta_2$ is normal with parameters 0 and 0.15. The prior for $\rho$ is $\pi(\rho) = \pi(\theta_2)\left|\dfrac{d\theta_2}{d\rho}\right| = \dfrac{\sqrt{0.15}}{\sqrt{2\pi}}\exp\left(-\dfrac{0.15}{2}\left[\log\left(\dfrac{1+\rho}{1-\rho}\right)\right]^2\right)\dfrac{2}{1-\rho^2}$
+
+## Data
+
+```{r eval=TRUE, include=FALSE}
+# ## Copy the data files
+# dir.create("data")
+# download.file(url = "https://haakonbakkagit.github.io/data/harmonised-unemployment-rates-mo.csv", destfile = "data/harmonised-unemployment-rates-mo.csv")
+# download.file(url = "https://haakonbakkagit.github.io/data/temperature-data", destfile = "data/temperature-data")
+
+temp = read.csv(here("Data_files/harmonised-unemployment-rates-mo.csv"))
+```
+
+
+```{r}
+# temp = read.csv("data/harmonised-unemployment-rates-mo.csv")
+n = nrow(temp)-1
+data = data.frame(y = temp[1:n,2], t=1:n)
+dates <- temp[1:n,1]
+plot(data$t, data$y, lwd=2, pch=19,
+    xlab='month', ylab='Unemployment Rates')
+lines(data$t,data$y)
+abline(h=2*(-8:9), lty=2, col=gray(.5))
+```
+
+## Model
+
+$$
+y_i = \beta_0 + u_i + \epsilon_i, \qquad \epsilon_i\sim \text{N}(0, \tau_\epsilon^{-1} = \sigma_\epsilon^2), \qquad u_i \sim \text{N}(0, \kappa^{-1}), \qquad \kappa = \tau_u(1-\rho^2)
+$$
+
+
+### Model 1
+
+```{r}
+family = "gaussian"
+formula1 <- y ~ f(t, model = 'ar1')
+res1 <- inla(formula = formula1,
+             data = data,
+             family = family)
+summary(res1)
+```
+
+
+```{r}
+plot(res1$summary.random$t[ ,"mean"] + res1$summary.fixed$mean[1], ylab = "fitting result", type = "l")
+points(data$y, col="blue")
+```
+
+
+::: {.alert .alert-info}
+Remarks
+
+- `res1$summary.random$t[ ,"mean"]`  corresponds to $u_i$
+:::
+
+```{r}
+res1$internal.summary.hyperpar[2,] |> head() |> knitr::kable(format = "markdown", caption = "Internal hyperparameters")
+```
+
+### Model 2
+
+```{r}
+hyper2 = list(theta1=list(initial=0.5, fixed=T))  # this fixes theta1 to 0.5 so no inference is done
+formula2 <- y~ f(t,model='ar1',hyper=hyper2)
+  
+res2 <- inla(formula=formula2,data=data,family=family)
+summary(res2)
+plot(data$y, col="blue",
+     ylab="fitting result")
+lines(res2$summary.random$t[ ,"mean"]+res2$summary.fixed$mean[1])
+```
+
+### Model 3
+
+```{r}
+family <- "gaussian"
+
+hyper3 <- list(theta1 = list(prior="pc.prec", param=c(0.06, 0.008)),
+                    theta2 = list(prior="pc.cor1", param=c(0.9, 0.9)) )
+formula3 <- y~ f(t,model='ar1',hyper=hyper3)
+res3 <- inla(formula=formula3,data=data,family=family,
+             control.predictor = list(compute=T))
+summary(res3)
+plot(data$y, col="blue",
+     ylab="fitting result")
+lines(res3$summary.random$t[ ,"mean"]+res3$summary.fixed$mean[1])
+```
+
+
+
+
+
+```{r}
+rho.df = list(rho.intern = res3$internal.marginals.hyperpar$`Rho_intern for t`, rho = res3$marginals.hyperpar$`Rho for t`)
+# posterior of sigma
+marginal.posterior.rho = inla.tmarginal(fun = function(x) x, marginal = rho.df$rho)
+marginal.posterior.rho.internal = inla.tmarginal(fun = function(x) 2 * exp(x) / (1 + exp(x)) - 1, marginal = rho.df$rho.intern)
+
+plot(marginal.posterior.rho, type = "p", xlab = expression(rho), ylab = "Probability density", col = "red")
+lines(marginal.posterior.rho.internal, col = "blue")
+legend("topright", pch = 1, col = c("red", "blue"), legend = c("rho", "rho from intern"))
+```
+
+
+```{r}
+# posterior of sigma
+marginal.posterior.rho.intern= inla.tmarginal(fun = function(x) x, marginal = rho.df$rho.intern)
+marginal.posterior.rho.intern.from.rho = inla.tmarginal(fun = function(x) log((1 + x) / (1 - x)), marginal = rho.df$rho)
+
+plot(marginal.posterior.rho.intern, type = "p", xlab = "", ylab = "Probability density", col = "red")
+lines(marginal.posterior.rho.intern.from.rho, col = "blue")
+legend("topright", pch = 1, col = c("red", "blue"), legend = c("rho intern", "rho intern from rho"))
+```
+
+
+
+Observe the normality. This is because the prior for $\theta_2$ is normal.
+

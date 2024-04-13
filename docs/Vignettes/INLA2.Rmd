@@ -1,0 +1,306 @@
+---
+title: "INLA 2"
+author: "Lenin Rafael Riera Segura"
+date: "Created: 12-04-2024. Last modified: `r format(Sys.time(), '%d-%m-%Y.')`"
+output:
+  html_document:
+    mathjax: "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
+    highlight: pygments
+    theme: flatly
+    toc: true
+    toc_float:
+      collapsed: true
+      smooth_scroll: true
+    number_sections: true
+    fig_caption: true
+always_allow_html: true
+---
+```{css}
+body .main-container {
+  max-width: 100% !important;
+  width: 100% !important;
+}
+body {
+  max-width: 100% !important;
+}
+
+body, td {
+   font-size: 16px;
+}
+code.r{
+  font-size: 14px;
+}
+pre {
+  font-size: 14px
+}
+```
+
+
+```{r}
+knitr::opts_chunk$set(message = FALSE, 
+                      warning = FALSE, 
+                      echo = TRUE, 
+                      include = TRUE, 
+                      fig.align = "center",
+                      out.width = "100%"
+                      )
+set.seed(1982)
+```
+
+
+```{r}
+library(INLA)
+library(here)
+```
+
+
+# Model 1
+
+```{r}
+data(Seeds)
+df <- data.frame(y = Seeds$r, Ntrials = Seeds$n, Seeds[, 3:5])
+df |> head(2) |> knitr::kable(caption = "Data")
+```
+
+## Model specification
+
+The model specification is 
+
+$$
+y_i\sim\text{Binomial}\left(N_i, p_i\right)\label{eq1}\tag{A}
+$$
+
+$$
+p_i = \text{invlogit}(\eta_i) =  \frac{\exp(\eta_i)}{1+\exp(\eta_i)} =
+\frac{1}{1+\exp(-\eta_i)}\qquad \left(\text{i.e., }\eta_i = \text{logit}(p_i) =\log\left(\frac{p_i}{1-p_i}\right)
+\right)
+$$
+
+$$
+\eta_i = \beta_0 + \beta_1x_{1i} + \beta_2x_{2i} +v_i
+$$
+
+$$
+\beta_i \sim \text{N}(0, 1000)
+$$
+
+$$
+v_i\sim\text{N}(0,\sigma^2)
+$$
+$$
+\sigma\sim\text{Exp}(\lambda) \qquad \left(\text{i.e., }\pi(\sigma) = \lambda e^{-\lambda\sigma}\right)
+$$
+
+$$
+\texttt{inla()}\text{ deals with }\sigma^{-2} = \tau \sim\pi(\tau) =\pi(\sigma) \left|\dfrac{d\sigma}{d\tau}\right|= \dfrac{\lambda}{2}\tau^{-3/2}e^{-\lambda \tau^{-1/2}}
+$$
+
+$$
+\text{internally }\texttt{inla()}\text{ deals with }\log(\tau) = \theta \sim\pi(\theta) = \pi(\tau)\left|\dfrac{d\tau}{d\theta}\right| = \dfrac{\lambda}{2}\exp\left(-\dfrac{\theta}{2} - \lambda \exp\left(-\dfrac{\theta}{2}\right)\right)
+$$
+
+$$
+\lambda \text{ is such that } \pi(\sigma>1) = 0.01\qquad\left(\text{i.e., }0.01 = \pi(\sigma>1) = 1- \pi(\sigma\leq1) = e^{-\lambda}\implies \lambda = -\dfrac{\log(0.01)}{1}\approx4.6\right)\label{eq2}\tag{B}
+$$
+
+## INLA call
+
+```{r}
+# call to inla
+hyper <- list(theta = list(prior = "pc.prec", param = c(1,0.01)))
+formula1 = y ~ x1 + x2 + f(plate, 
+                           model = "iid",  
+                           hyper = hyper)
+model1 = inla(formula = formula1, 
+            data = df, 
+            family = "binomial",
+            Ntrials = Ntrials, 
+            control.family = list(control.link = list(model = "logit")),
+            control.predictor = list(compute = TRUE, link = 1)) 
+summary(model1)
+```
+
+
+# Model 2
+
+```{r}
+# data generation
+N = 3600
+
+sig.epsilon = 0.5
+sig.u = 1
+sig.seasonal = 2
+
+rho = 0.90
+
+u = arima.sim(list(order = c(1, 0 ,0), ar = rho), n = N,sd = 1)
+u = u/sd(u)*sig.u
+seas.coeff = (0:11)*(1:12-12)
+seas = rep(seas.coeff, N/12)
+seas = drop(scale(seas))*sig.seasonal
+gaussian.error = rnorm(N, 0, sd = sig.epsilon)
+```
+
+```{r}
+(prec.sig.epsilon = sig.epsilon^(-2))
+(prec.sig.u = sig.u^(-2))
+(prec.sig.seasonal = sig.seasonal^(-2))
+```
+
+
+```{r}
+# the model
+y = u + seas + gaussian.error
+```
+
+```{r}
+df = data.frame(y = y, t = 1:N, year = rep(1:12, N/12))
+df |> head(2) |> knitr::kable(caption = "Data")
+```
+
+## Model specification 
+
+$$
+y_i = \beta_0 + u(t_i) + s_i + \epsilon_i,\; i =1,\dots, n
+$$
+
+$$
+u(t_1) \sim \text{N}(0, (\tau_u(1-\rho^2))^{-1}), \qquad u(t_i) = \rho u(t_{i-1}) + e_i, \qquad e_i \sim \text{N}(0, \tau_u^{-1} = \sigma_u^2) \qquad i =2,\dots, n, \qquad |\rho|<1\qquad
+\text{or}\qquad u(t_i) - \rho u(t_{i-1}) \sim \text{N}(0, \tau_u^{-1} = \sigma_u^2) 
+$$
+
+$$
+\beta_0 \sim \text{N}(0, 1000)
+$$
+
+$$
+\epsilon_i \sim \text{N}(0, \tau_\epsilon^{-1} = \sigma_\epsilon^2)
+$$
+
+$$
+s_i-2s_{i+1}+s_{i+2}\sim\text{N}(0, \tau_s^{-1} = \sigma_s^2)
+$$
+
+$$
+\sigma_u^{-2} = \tau_u \sim\pi(\tau_u) = \dfrac{\lambda}{2}\tau_u^{-3/2}e^{-\lambda \tau_u^{-1/2}},\qquad\text{where }\lambda = -\dfrac{\log(0.5)}{0.1}\text{ is such that }\pi(\sigma_u>0.1) = 0.5
+$$
+
+$$
+\rho\sim\pi(\rho) = \dfrac{\lambda\exp(-\lambda\sqrt{1-\rho})}{1-\exp(-\sqrt2\lambda)}\dfrac{1}{2\sqrt{1-\rho}},\qquad\text{where }\lambda,\text{ the solution of }\dfrac{\exp(-\lambda\sqrt{1-0.9})}{1-\exp(-\sqrt2\lambda)} = 0.5,\text{ is such that }\pi(\rho>0.9) = 0.5
+$$
+
+
+$$
+\sigma_s^{-2} = \tau_s \sim\pi(\tau_s) = \dfrac{\lambda}{2}\tau_s^{-3/2}e^{-\lambda \tau_s^{-1/2}},\qquad\text{where }\lambda = -\dfrac{\log(0.5)}{0.1}\text{ is such that }\pi(\sigma_s>0.1) = 0.5
+$$
+
+$$
+\sigma_\epsilon^{-2} = \tau_\epsilon \sim\pi(\tau_\epsilon) = \dfrac{\lambda}{2}\tau_\epsilon^{-3/2}e^{-\lambda \tau_\epsilon^{-1/2}},\qquad\text{where }\lambda = -\dfrac{\log(0.5)}{3}\text{ is such that }\pi(\sigma_\epsilon>3) = 0.5
+$$
+
+## INLA call
+
+```{r}
+hyper.ar1 <- list(theta1 = list(prior="pc.prec", param = c(0.1, 0.5)), #sigma_u
+                 theta2 = list(prior="pc.cor1", param = c(0.9, 0.5))) #rho
+hyper.rw2 <- list(theta1 = list(prior="pc.prec", param = c(1.99, 0.99))) #sigma_s
+hyper.family <- list(theta = list(prior="pc.prec", param = c(3, 0.5))) #sigma_epsilon
+
+formula <- y ~ f(t, model = 'ar1', hyper = hyper.ar1) + 
+  f(year, model = "rw2", hyper = hyper.rw2, cyclic = T, constr = T)
+
+model2 <- inla(formula = formula,
+            data = df, 
+            family = "gaussian",
+            control.predictor = list(compute = TRUE),
+            control.family = list(hyper = hyper.family))
+summary(model2)
+```
+
+```{r}
+formula <- y ~ f(t, model = 'ar1') + 
+  f(year, model = "rw2", cyclic = T, constr = T)
+
+model2 <- inla(formula = formula,
+            data = df, 
+            family = "gaussian",
+            control.predictor = list(compute = TRUE))
+summary(model2)
+```
+
+# Model 3
+
+
+```{r eval=TRUE, include=FALSE}
+# download.file(url = "https://haakonbakkagit.github.io/data/harmonised-unemployment-rates-mo.csv", destfile = here("Data_files/harmonised-unemployment-rates-mo.csv"))
+
+temp = read.csv(here("Data_files/harmonised-unemployment-rates-mo.csv"))
+```
+
+
+```{r}
+# temp = read.csv("data/harmonised-unemployment-rates-mo.csv")
+n = nrow(temp) - 1
+df = data.frame(y = temp[1:n, 2], t = 1:n, dates = temp[1:n, 1])
+df |> head(2) |> knitr::kable(caption = "Data")
+```
+
+## Model specification
+
+$$
+y_i = \beta_0+u(t_i)+\epsilon_i
+$$
+
+$$
+u(t_1) \sim \text{N}(0, (\tau_u(1-\rho^2))^{-1}), \qquad u(t_i) = \rho u(t_{i-1}) + e_i, \qquad e_i \sim \text{N}(0, \tau_u^{-1} = \sigma_u^2) \qquad i =2,\dots, n, \qquad |\rho|<1\qquad\text{or}\qquad u(t_i) - \rho u(t_{i-1}) \sim \text{N}(0, \tau_u^{-1} = \sigma_u^2) 
+$$
+
+$$
+\beta_0 \sim \text{N}(0, 1000)
+$$
+
+
+$$
+\epsilon_i \sim \text{N}(0, \tau_\epsilon^{-1} = \sigma_\epsilon^2)
+$$
+
+$$
+\sigma_u^{-2} = \tau_u \sim\pi(\tau_u) = \dfrac{\lambda}{2}\tau_u^{-3/2}e^{-\lambda \tau_u^{-1/2}},\qquad\text{where }\lambda = -\dfrac{\log(0.5)}{0.02}\text{ is such that }\pi(\sigma_u>0.02) = 0.5
+$$
+
+$$
+\rho\sim\pi(\rho) = \dfrac{\lambda\exp(-\lambda\sqrt{1-\rho})}{1-\exp(-\sqrt2\lambda)}\dfrac{1}{2\sqrt{1-\rho}},\qquad\text{where }\lambda,\text{ the solution of }\dfrac{\exp(-\lambda\sqrt{1-0.9})}{1-\exp(-\sqrt2\lambda)} = 0.5,\text{ is such that }\pi(\rho>0.9) = 0.5
+$$
+
+
+$$
+\sigma_\epsilon^{-2} = \tau_\epsilon \sim\pi(\tau_\epsilon) = \dfrac{\lambda}{2}\tau_\epsilon^{-3/2}e^{-\lambda \tau_\epsilon^{-1/2}},\qquad\text{where }\lambda = -\dfrac{\log(0.5)}{3}\text{ is such that }\pi(\sigma_\epsilon>3) = 0.5
+$$
+
+
+
+
+Notice that $\sigma_u$ and $\sigma_\epsilon$ are $\text{Exp}(\lambda)$.
+
+
+
+
+## INLA call
+
+```{r}
+hyper.ar1 = list(theta1 = list(prior = "pc.prec", param = c(0.02, 0.5)), #sigma_u
+                 theta2 = list(prior = "pc.cor1", param = c(0.9, 0.5))) #rho
+hyper.family = list(theta = list(prior = "pc.prec", param = c(3, 0.5))) #sigma_epsilon
+formula2 <- y ~ f(t,model = 'ar1', hyper = hyper.ar1)
+
+model3 <- inla(formula = formula2,
+             data = df,
+             family="gaussian",
+             control.predictor = list(compute=TRUE),
+             control.family = list(hyper = hyper.family))
+summary(model3)
+```
+
+# Model 4
+
+

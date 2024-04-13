@@ -1,0 +1,205 @@
+---
+title: "INLA 3"
+author: "Lenin Rafael Riera Segura"
+date: "Created: 12-04-2024. Last modified: `r format(Sys.time(), '%d-%m-%Y.')`"
+output:
+  html_document:
+    mathjax: "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
+    highlight: pygments
+    theme: flatly
+    toc: true
+    toc_float:
+      collapsed: true
+      smooth_scroll: true
+    number_sections: true
+    fig_caption: true
+always_allow_html: true
+---
+```{css}
+body .main-container {
+  max-width: 100% !important;
+  width: 100% !important;
+}
+body {
+  max-width: 100% !important;
+}
+
+body, td {
+   font-size: 16px;
+}
+code.r{
+  font-size: 14px;
+}
+pre {
+  font-size: 14px
+}
+```
+
+
+```{r}
+knitr::opts_chunk$set(message = FALSE, 
+                      warning = FALSE, 
+                      echo = TRUE, 
+                      include = TRUE,
+                      fig.align = "center",
+                      out.width = "100%"
+                      )
+set.seed(1982)
+```
+
+
+```{r}
+library(INLA)
+```
+
+
+Consider the AR(1) process
+
+$$
+u_t = \rho u_{t-1}+\epsilon_t, \qquad \epsilon_t\sim\text{N}(0,1),\qquad |\rho|<1
+$$
+
+
+In this case, the precision matrix has main diagonal $1+\rho^2$ (except the first and last entries in the main diagonal, which are just 1) and sub- and super-diagonal with entries $-\rho$.
+
+
+```{r}
+precision.ar1 = function(n = 10, rho = 0.9){
+  Q <- sparseMatrix(i = c(1:n, 1:(n-1), 2:n), 
+                    j = c(1:n, 2:n, 1:(n-1)), 
+                    x = c(rep(1 + rho^2, n), 
+                          rep(-rho, n-1), 
+                          rep(-rho, n-1)))
+  Q[1,1] = Q[n,n] = 1
+  return(Q)
+}
+precision.ar1()
+```
+
+
+```{r}
+Q = precision.ar1(1000, 0.99)
+L = chol(Q)
+set.seed(2017)
+z.sample = rnorm(nrow(Q))
+u.sample = solve(L, z.sample)
+plot(u.sample, type="l")
+```
+
+## Section 2
+
+```{r}
+set.seed(2017)
+n = 50
+idx = 1:n
+fun = 100*((idx-n/2)/n)^3
+y = fun + rnorm(n, mean=0, sd=1)
+plot(idx, y)
+lines(fun, col="darkgreen")
+```
+
+## Model 
+
+$$
+y_i = x_i + \epsilon_i, \qquad \epsilon_i\sim\text{N}(0,\tau^{-1})
+$$
+
+$$
+x_i -2x_{i-1}+x_{i-2}\sim\text{N}(0,\theta^{-1})
+$$
+$$
+\pi(\mathbf{x}|\theta) \propto \theta^{(n-2)/2}\exp\left(\dfrac{\theta}{2}\sum_{i=3}^n(x_i -2x_{i-1}+x_{i-2})^2\right)
+$$
+
+
+
+In INLA, $\log(\theta)$ has default prior loggamma with parameters 1 and 5e-05, meaning that $\theta$ has prior gamma with parameters 1 and 5e-05. That is,
+
+$$
+\pi(\theta)\propto \theta^{a-1}\exp(-b\theta)
+$$
+
+where $a = 1$ and $b$ = 1e-05. 
+
+
+
+
+```{r}
+df = data.frame(y=y, idx=idx)
+df |> head() |> knitr::kable(caption = "Data")
+```
+
+
+
+
+
+```{r}
+hyper1 = list(prec = list(initial = 0, fixed = T))
+formula1 = y ~ -1 + f(idx, model = "rw2", hyper = hyper1)
+
+res1 = inla(formula = formula1,
+            family = "gaussian", 
+            data = df,
+            control.family = list(hyper = hyper1))
+```
+
+```{r}
+summary(res1)
+```
+
+
+```{r}
+local.plot.result = function(res) {
+  plot(idx, y)
+  lines(res$summary.random$idx$mean, col="blue")
+  lines(res$summary.random$idx$`0.025quant`, col="grey")
+  lines(res$summary.random$idx$`0.9`, col="grey")
+  lines(fun, col="darkgreen")
+}
+local.plot.result(res1)
+```
+
+
+
+```{r}
+formula2 = y ~ -1 + f(idx, model = "rw2")
+res2 = inla(formula = formula2, 
+            family = "gaussian", 
+            data = df,
+            control.family = list(hyper = hyper1),
+            control.compute = list(config=TRUE))
+summary(res2)
+local.plot.result(res2)
+```
+
+
+```{r}
+res3 = inla(formula2, 
+            family = "gaussian",
+            data = df)
+summary(res3)
+local.plot.result(res3)
+```
+
+
+::: {.alert .alert-info}
+Remarks
+
+- When we do `hyper1 = list(prec = list(initial = 0, fixed = T))` we are fixing the hyperparamaters. So no inference is obtained.
+
+- When we do `hyper1 = list(prec = list(initial = 0, fixed = F))` we are not fixing the hyperparamaters. We are giving initial values apparently and so inference is obtained
+
+- In the two previous cases we are not changing the prior.
+
+- When we  do not add any `hyper` parameter in the model, inference is obtained.
+
+- If we actually want to change the prior, we do `hyper1 = list(theta1 = list(prior="pc.prec", param = c(1.99, 0.99)))` and inference is obtained.
+:::
+
+
+
+
+
+
+
+
