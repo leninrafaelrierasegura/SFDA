@@ -1,0 +1,23 @@
+name: "Several authors"
+output_dir: "docs"
+navbar:
+  title: "San Francisco"
+  left:
+    - text: "Home"
+      href: index.html
+    - text: "About"
+      href: about.html
+    - text: "Preprocessing"
+      href: Vignettes/dp.html
+    - text: "Models"
+      menu:
+        - text: "Model 1"
+          href: Vignettes/PT_1.html
+  right:
+    - icon: fa-globe
+      href: https://leninrafaelrierasegura.github.io/
+output:
+  html_document:
+    highlight: textmate
+    theme: flatly
+    css: style.css

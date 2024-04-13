@@ -1,0 +1,111 @@
+---
+title: "SF"
+author: ""
+date: "`r format(Sys.time(), 'October %d, %Y')`"
+mainfont: Times New Roman
+output:
+  html_document:
+    highlight: pygments
+    toc: no
+    toc_float:
+      collapsed: no
+      smooth_scroll: yes
+    number_sections: no
+    fig_caption: yes
+  pdf_document:
+    toc: no
+    number_sections: true
+fontsize: 12pt
+geometry: margin=2cm
+editor_options:
+  markdown:
+    wrap: 72
+always_allow_html: true
+---
+
+```{=html}
+<style type="text/css">
+.main-container {
+  max-width: 2000px;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
+```
+```{=html}
+<style type="text/css">
+
+body, td {
+   font-size: 14px;
+}
+code.r{
+  font-size: 14px;
+}
+pre {
+  font-size: 14px
+}
+</style>
+```
+
+```{r}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+```
+
+
+# LOADING THE DATA
+
+```{r}
+library(MetricGraph)
+library(dplyr)
+library(TSstudio)
+library(ggplot2)
+library(gganimate)
+# loading the data
+load("~/Desktop/Spring 2024/january_with_ID.RData")
+
+
+# just filtering
+aux = january %>%
+  filter(day %in% c(7)) %>% # every Thursday of January 2021
+  distinct(geometry, .keep_all = TRUE) # to remove observations with the same location
+
+
+
+# let us get a specific bus
+IDnumber = 8712
+df = aux %>% 
+  filter(ID == IDnumber) %>% 
+  dplyr::select(datetime, speed) %>% 
+  sf::st_drop_geometry() %>%
+  arrange(datetime) %>%
+  mutate(time_diff1 = as.numeric(c(0,diff(datetime))/60), time_diff = as.numeric(c(diff(datetime),0)/60)) %>%
+  mutate(time_since_zero = 0)
+
+# Initialize variables to keep track of time since last zero speed observation
+time_since_zero <- 0
+
+# Iterate over rows in the data frame
+for (i in 1:nrow(df)) {
+  # If speed is zero, reset time_since_zero
+  if (df$speed[i] == 0) {
+    time_since_zero <- time_since_zero + df$time_diff[i]
+  } else {
+    # Increment time_since_zero by the time difference for non-zero speed observations
+    time_since_zero <- 0
+  }
+  
+  # Update the 'time_since_zero' column in the data frame
+  df$time_since_zero[i] <- time_since_zero
+}
+
+df  = df %>% select(-time_diff)
+
+ts_plot(df,
+        line.mode = "lines+markers",
+        title = paste("Speed records, day 7 January, bus ID: ", IDnumber, sep = ""),
+        Xtitle = "Time",
+        Ytitle = "Speed",
+        type = "multiple")
+
+```
+

@@ -1,0 +1,140 @@
+---
+title: "SF"
+author: ""
+date: "`r format(Sys.time(), 'October %d, %Y')`"
+mainfont: Times New Roman
+output:
+  pdf_document:
+    toc: no
+    number_sections: true
+  html_document:
+    highlight: pygments
+    toc: no
+    toc_float:
+      collapsed: no
+      smooth_scroll: yes
+    number_sections: no
+    fig_caption: yes
+fontsize: 12pt
+geometry: margin=2cm
+editor_options:
+  markdown:
+    wrap: 72
+always_allow_html: true
+---
+
+```{=html}
+<style type="text/css">
+.main-container {
+  max-width: 2000px;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
+```
+```{=html}
+<style type="text/css">
+
+body, td {
+   font-size: 14px;
+}
+code.r{
+  font-size: 14px;
+}
+pre {
+  font-size: 14px
+}
+</style>
+```
+
+```{r}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+```
+
+
+```{r}
+library(plotly)
+library(dplyr)
+
+# helper functions
+standardize <- function(vector) {return((vector - mean(vector)) / sd(vector))}
+convert_to_binary <- function(input_vector) {return(ifelse(input_vector != 0, 1, 0))}
+
+################################################################################
+################################# PREPARE THE DATA #############################
+################################################################################
+
+
+# loading the data
+load("~/Desktop/Spring 2024/Sanfrancisco_data_analysis/Data_files/data_on_graph_with_covariates_no_consecutive_zeros_partialtomtom.RData")
+
+data = data_on_graph_with_covariates %>% 
+  mutate(across(starts_with(c("class_", "upto")), list(ind = convert_to_binary))) %>%
+  mutate(across(c("bus", "signal", "stop", "crossing"), ~round(., 5))) %>%
+  mutate(across(c("density_per_hour"), standardize))
+```
+
+## All covariates
+
+```{r}
+res = lm(speed ~ SpeedLimit + 
+           density_per_hour +
+           bus +
+           signal +
+           stop +
+           crossing +
+           upto1_ind +
+           bus_number + 
+           signal_number +
+           stop_number +
+           crossing_number,
+         data = data)
+
+summary(res)
+
+yhat = res$fitted.values
+plot(yhat)
+```
+
+## Only SpeedLimit
+```{r}
+res = lm(speed ~ SpeedLimit +
+           density_per_hour +
+           #bus +
+           #signal +
+           #stop +
+           #crossing +
+           upto1_ind,
+           #bus_number + 
+           #signal_number +
+           #stop_number +
+           #crossing_number,
+         data = data)
+
+summary(res)
+
+yhat = res$fitted.values
+plot(yhat)
+```
+
+
+```{r}
+res = lm(speed ~ SpeedLimit,
+           #density_per_hour +
+           #bus +
+           #signal +
+           #stop +
+           #crossing +
+           #upto1_ind,
+           #bus_number + 
+           #signal_number +
+           #stop_number +
+           #crossing_number,
+         data = data)
+
+summary(res)
+
+yhat = res$fitted.values
+plot(yhat)
+```
+

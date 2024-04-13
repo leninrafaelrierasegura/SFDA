@@ -1,0 +1,101 @@
+---
+title: "SF"
+author: ""
+date: "`r format(Sys.time(), 'October %d, %Y')`"
+mainfont: Times New Roman
+output:
+  html_document:
+    highlight: pygments
+    toc: no
+    toc_float:
+      collapsed: no
+      smooth_scroll: yes
+    number_sections: no
+    fig_caption: yes
+  pdf_document:
+    toc: no
+    number_sections: true
+fontsize: 12pt
+geometry: margin=2cm
+editor_options:
+  markdown:
+    wrap: 72
+always_allow_html: true
+---
+
+```{=html}
+<style type="text/css">
+.main-container {
+  max-width: 2000px;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
+```
+```{=html}
+<style type="text/css">
+
+body, td {
+   font-size: 14px;
+}
+code.r{
+  font-size: 14px;
+}
+pre {
+  font-size: 14px
+}
+</style>
+```
+
+```{r}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+```
+
+```{r}
+library(MetricGraph)
+library(sf)
+library(mapview)
+library(dplyr)
+library(plotly)
+library(lubridate)
+library(ggplot2)
+library(gganimate)
+library(MASS)
+library(osmdata)
+library(tidyr)
+```
+
+
+## LOADING THE DATA
+
+```{r}
+load("Data_files/tomtom.RData")
+```
+
+## PREPROCESING
+
+```{r}
+from_tomtom = tomtom %>% 
+  dplyr::select(Length, SpeedLimit, FRC, sampleSize) %>%
+  filter(FRC != "7") %>%
+  mutate(value = SpeedLimit, road_type = FRC) %>%
+  pivot_wider(names_from = FRC, values_from = value, values_fill = list(value = 0)) 
+
+weights_from_tomtom = from_tomtom %>% st_drop_geometry()
+```
+
+## BUILDING THE GRAPH
+
+```{r}
+# building the graph
+graph = graph_components$new(edges = from_tomtom$geometry, 
+                             longlat = TRUE, 
+                             edge_weights = weights_from_tomtom, 
+                             verbose = 2, 
+                             which_longlat = "sp", 
+                             tolerance = list(vertex_vertex = 0,
+                                              vertex_edge = 0, 
+                                              edge_edge = 0))
+
+```
+

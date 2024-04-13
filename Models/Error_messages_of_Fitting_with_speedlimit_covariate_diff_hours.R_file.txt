@@ -1,0 +1,41 @@
+Adding observations...
+The unit for edge lengths is km
+The current tolerance for removing distant observations is (in km): 0.2
+Converting data to PtE
+This step may take long. If this step is taking too long consider pruning the vertices to possibly obtain some speed up.
+Adding observations...
+The unit for edge lengths is km
+The current tolerance for removing distant observations is (in km): 1.80891430640994
+Adding observations...
+The unit for edge lengths is km
+The current tolerance for removing distant observations is (in km): 0.2
+Converting data to PtE
+This step may take long. If this step is taking too long consider pruning the vertices to possibly obtain some speed up.
+Adding observations...
+The unit for edge lengths is km
+The current tolerance for removing distant observations is (in km): 1.80891430640994
+Adding observations...
+The unit for edge lengths is km
+The current tolerance for removing distant observations is (in km): 0.2
+Converting data to PtE
+This step may take long. If this step is taking too long consider pruning the vertices to possibly obtain some speed up.
+Adding observations...
+The unit for edge lengths is km
+The current tolerance for removing distant observations is (in km): 1.80891430640994
+Adding observations...
+The unit for edge lengths is km
+The current tolerance for removing distant observations is (in km): 0.2
+Converting data to PtE
+This step may take long. If this step is taking too long consider pruning the vertices to possibly obtain some speed up.
+Adding observations...
+The unit for edge lengths is km
+The current tolerance for removing distant observations is (in km): 1.80891430640994
+Warning messages:
+1: In system.time({ :
+  There were points that were farther than the tolerance. These points were removed. If you want them projected into the graph, please increase the tolerance. The total number of points removed due do being far is 310
+2: In system.time({ :
+  There were points that were farther than the tolerance. These points were removed. If you want them projected into the graph, please increase the tolerance. The total number of points removed due do being far is 266
+3: In system.time({ :
+  There were points that were farther than the tolerance. These points were removed. If you want them projected into the graph, please increase the tolerance. The total number of points removed due do being far is 288
+4: In system.time({ :
+  There were points that were farther than the tolerance. These points were removed. If you want them projected into the graph, please increase the tolerance. The total number of points removed due do being far is 288

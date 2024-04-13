@@ -1,0 +1,331 @@
+---
+title: "Model 1"
+author: "Several authors"
+date: "`r format(Sys.time(), '%m-%d-%Y')`"
+output:
+  html_document:
+    mathjax: "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
+    highlight: pygments
+    theme: flatly
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    number_sections: true
+    fig_caption: true
+always_allow_html: true
+---
+
+```{=html}
+<style type="text/css">
+.main-container {
+  max-width: 2000px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+body, td {
+   font-size: 16px;
+}
+code.r{
+  font-size: 14px;
+}
+pre {
+  font-size: 14px
+}
+</style>
+```
+
+
+
+
+
+Let us set some global options for all code chunks in this document.
+
+```{r}
+knitr::opts_chunk$set(
+  message = FALSE,    # Disable messages printed by R code chunks
+  warning = FALSE,    # Disable warnings printed by R code chunks
+  echo = TRUE,        # Show R code within code chunks in output
+  include = TRUE,     # Include both R code and its results in output
+  eval = TRUE,        # Evaluate R code chunks
+  cache = TRUE        # Enable caching of R code chunks for faster rendering
+)
+
+#set.seed(1982)
+```
+
+
+
+
+
+
+
+
+
+
+```{r, eval = FALSE}
+# Open a connection to a text file
+sink("~/Desktop/Spring 2024/Model_runs/stat_vs_nonstat_gaussian_all_data_h0.2partialtomtom5.txt")
+```
+
+Let us now load some required libraries.
+
+```{r
+}
+# Load required libraries
+library(INLA)
+library(inlabru)
+library(rSPDE)
+library(MetricGraph)
+
+library(plotly)
+library(dplyr)
+library(tidyr)
+library(MASS)
+library(glmnet)
+library(car)
+
+library(sf)
+```
+
+We now define some `R` functions with self-explanatory names.
+
+```{r}
+# Functions to manipulate the data
+standardize <- function(vector) {return((vector - mean(vector)) / sd(vector))}
+minmax_scaling <- function(x) {return((x - min(x)) / (max(x) - min(x)))}
+convert_to_binary <- function(input_vector) {return(ifelse(input_vector != 0, 1, 0))}
+```
+
+# Data manipulation
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r
+}
+h = 0.05
+
+source("Preprocessing/28Window.case.file4.addcovariatesonmesh.R")
+
+creates_covariates_on_mesh(h)
+
+Sys.sleep(20)
+
+################################################################################
+################################# PREPARE THE DATA #############################
+################################################################################
+
+
+# loading the data
+load("Data_files/data_on_graph_with_covariates_no_consecutive_zeros_partialtomtom.RData")
+load("Graph_objects/graph_construction_28_03_2024partialtomtomwhichlonglatsf.RData")
+load("Data_files/data_on_mesh_with_covariates_partialtomtom.RData")
+
+
+data = data_on_graph_with_covariates %>% 
+  mutate(across(starts_with(c("class_", "upto")), list(ind = convert_to_binary))) %>%
+  mutate(across(c("bus", "signal", "stop", "crossing"), ~round(., 5))) %>%
+  mutate(across(c("SpeedLimit", "density_per_hour"), standardize)) # or ~standardize(.)
+
+
+mesh = data_on_mesh_with_covariates %>% 
+  mutate(across(starts_with(c("class_", "upto")), list(ind = convert_to_binary))) %>% # this creates new columns
+  mutate(across(c("bus", "signal", "stop", "crossing"), ~round(., 5))) %>%
+  mutate(across(c("SpeedLimit", "density_per_hour"), standardize)) # or ~standardize(.)
+
+
+start_time <- Sys.time()
+sf_graph$add_observations(data = data, group = "day", clear_obs = TRUE)
+sf_graph$build_mesh(h = h)
+
+################################################################################
+################################# STATIONARY MODEL #############################
+################################################################################
+
+
+rspde_model_statWM <- rspde.metric_graph(sf_graph, 
+                                         parameterization = "matern", nu = 0.5)
+
+data_rspde_bru_s_WM <- graph_data_rspde(rspde_model_statWM, repl = ".all", loc_name = "loc")
+
+cmp_statWM = speed ~ -1 +
+  Intercept(1) +
+  SpeedLimit + 
+  density_per_hour +
+  bus +
+  signal +
+  stop +
+  crossing +
+  upto1_ind + 
+  bus_number + 
+  field(loc, model = rspde_model_statWM, replicate = data_rspde_bru_s_WM[["repl"]])
+
+rspde_fit_stat_WM <-
+  bru(cmp_statWM,
+      data = data_rspde_bru_s_WM[["data"]],
+      family = "gaussian",
+      options = list(verbose = FALSE)
+  )
+
+summary(rspde_fit_stat_WM)
+
+fit.rspde = rspde.result(rspde_fit_stat_WM, "field", rspde_model_statWM)
+summary(fit.rspde)
+
+
+
+################################################################################
+############################# NON STATIONARY MODEL #############################
+################################################################################
+
+B.sigma = cbind(0, 1, 0, mesh$SpeedLimit, 0) 
+B.range = cbind(0, 0, 1, 0, mesh$SpeedLimit) 
+
+rspde_model_nonstatWM <- rspde.metric_graph(sf_graph,
+                                            start.theta = c(fit.rspde$summary.log.std.dev$mode, fit.rspde$summary.log.range$mode, rep(0, 2)),
+                                            B.sigma = B.sigma,
+                                            B.range = B.range,
+                                            parameterization = "matern", nu = 0.5)
+
+data_rspde_bru_nsWM <- graph_data_rspde(rspde_model_nonstatWM, repl = ".all", loc_name = "loc")
+
+cmp_nonstatWM = speed ~ -1 +
+  Intercept(1) +
+  SpeedLimit + 
+  density_per_hour +
+  bus +
+  signal +
+  stop +
+  crossing +
+  upto1_ind + 
+  bus_number +  
+  field(loc, model = rspde_model_nonstatWM, replicate = data_rspde_bru_nsWM[["repl"]])
+
+rspde_fit_nonstat_WM <-
+  bru(cmp_nonstatWM,
+      data = data_rspde_bru_nsWM[["data"]],
+      family = "gaussian",
+      options = list(verbose = FALSE)
+  )
+
+summary(rspde_fit_nonstat_WM)
+summary(rspde.result(rspde_fit_nonstat_WM, "field", rspde_model_nonstatWM))
+
+################################################################################
+################################ CROSSVALIDATION ###############################
+################################################################################
+
+points = data_on_graph_with_covariates %>% 
+  as.data.frame() %>%
+  st_as_sf(coords = c(".coord_x", ".coord_y"), crs = 4326) %>%
+  mutate(., index = 1:nrow(.)) 
+
+
+polygon = st_multipoint(c(st_point(c(-122.42591, 37.80732)),
+                          st_point(c(-122.40648, 37.81002)),
+                          st_point(c(-122.38820, 37.78959)),
+                          st_point(c(-122.38770, 37.78849)),
+                          st_point(c(-122.38483, 37.76713)),
+                          st_point(c(-122.39342, 37.76665)),
+                          st_point(c(-122.39372, 37.76655)),
+                          st_point(c(-122.41970, 37.76500)),
+                          st_point(c(-122.42039, 37.77159)),
+                          st_point(c(-122.42050, 37.77174)),
+                          st_point(c(-122.42040, 37.77194)),
+                          st_point(c(-122.41905, 37.77306)))) %>%
+  st_cast("POLYGON") %>%
+  st_sfc(crs = st_crs(points))
+
+
+
+grid100 = st_make_grid(polygon, n = c(100, 100)) %>% 
+  as.data.frame() %>% 
+  st_as_sf(crs = st_crs(points)) %>% 
+  st_centroid() %>%
+  mutate(dummy = 1)
+
+grid10 = st_make_grid(polygon, n = c(10, 10)) %>% 
+  as.data.frame() %>% 
+  st_as_sf(crs = st_crs(points)) %>% 
+  st_centroid() %>%
+  mutate(dummy = 1)
+
+get.index = points %>% 
+  st_join(x = grid100, y = ., join = st_nearest_feature) %>% 
+  dplyr::select(index) %>%
+  st_join(x = grid10, y = ., join = st_nearest_feature) %>%
+  dplyr::select(index) %>%
+  st_filter(polygon)
+
+chosen.points = points[get.index$index, ] %>% dplyr::select(speed)
+#chosen.points = points %>% dplyr::select(speed)
+
+distance = seq(from = 0, to = 250, by = 50)
+mse.stat <- mse.nonstat <- ls.stat <- ls.nonstat <- rep(0,length(distance))
+# cross-validation for-loop
+for(j in 1:length(distance)){
+  print(j)
+  groups <- list()
+  for(i in 1:nrow(chosen.points)) {
+    # get index of the points that should be removed
+    groups[[i]] <- (chosen.points[i,2] %>% 
+                      st_buffer(dist = distance[j], nQuadSegs = 30) %>%
+                      st_filter(x = points, y = .) %>%
+                      as.data.frame())$index # as.data.frame is important so that we do not include the geometry column
+  }
+  # cross-validation of the stationary model 
+  cv.stat <- inla.group.cv(rspde_fit_stat_WM, groups = groups)
+  # cross-validation of the nonstationary model
+  cv.nonstat <- inla.group.cv(rspde_fit_nonstat_WM, groups = groups)
+  # obtain MSE and LS
+  mse.stat[j] <- mean((cv.stat$mean[1:nrow(chosen.points)] - chosen.points$speed)^2)
+  mse.nonstat[j] <- mean((cv.nonstat$mean[1:nrow(chosen.points)] - chosen.points$speed)^2)
+  ls.stat[j] <- mean(log(cv.stat$cv[1:nrow(chosen.points)]))
+  ls.nonstat[j] <- mean(log(cv.nonstat$cv[1:nrow(chosen.points)]))
+}
+
+
+
+
+## plot results
+par(mfrow=c(1,2))
+
+# Plot MSE
+plot(distance, mse.stat, main = "MSE", ylim = c(min(mse.nonstat, mse.stat), max(mse.nonstat, mse.stat)),
+     type = "l", ylab = "MSE", xlab = "distance in m", col = "black")
+lines(distance, mse.nonstat, col = "blue")
+legend("topright", legend = c("Stationary", "Non-stationary"), col = c("black", "blue"), lty = 1)
+
+# Plot log-score
+plot(distance, -ls.stat, main = "log-score", ylim = c(min(-ls.nonstat, -ls.stat), max(-ls.nonstat, -ls.stat)),
+     type = "l", ylab = "log-score", xlab = "distance in m", col = "black")
+lines(distance, -ls.nonstat, col = "blue")
+legend("topright", legend = c("Stationary", "Non-stationary"), col = c("black", "blue"), lty = 1)
+
+
+end_time <- Sys.time()
+execution_time <- end_time - start_time
+
+
+save.image("~/Desktop/Spring 2024/Model_runs/stat_vs_nonstat_gaussian_all_data_h0.2partialtomtom5.RData")
+
+
+# Close the connection
+sink()
+
+```
+

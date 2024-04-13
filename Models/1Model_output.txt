@@ -1,0 +1,251 @@
+# loading the data
+> load("Data_files/data_on_graph_with_covariates.RData")
+> load("Graph_objects/graph_construction_11_03_2024.RData")
+> 
+> h = 0.2
+> 
+> source("Covariates/6Creates_covariates_on_mesh.R")
+> 
+> creates_covariates_on_mesh(h)
+Adding observations...
+The unit for edge lengths is km
+The current tolerance for removing distant observations is (in km): 1.61153172520888
+> 
+> Sys.sleep(60)
+> 
+> load("Data_files/data_on_mesh_with_covariates.RData")
+> 
+> 
+> set.seed(2024)
+> 
+> data = data_on_graph_with_covariates %>% 
++   dplyr::select(speed, 
++                 day,
++                 SpeedLimit,
++                 density_per_hour_normalized,
++                 bus,
++                 signal,
++                 stop,
++                 crossing) %>%
++   mutate(bus = round(bus, 5), signal = round(signal, 5), stop = round(stop, 5), crossing = round(crossing, 5)) %>%
++   sample_n(1000, replace = FALSE) %>%
++   filter(speed > 0)
+> 
+> 
+> sf_graph$add_observations(data = data, group = "day", clear_obs = TRUE)
+Adding observations...
+The unit for edge lengths is km
+The current tolerance for removing distant observations is (in km): 1.61153172520888
+> sf_graph$build_mesh(h = h)
+> 
+> 
+> ################################################################################
+> ############################# NON STATIONARY MODEL #############################
+> ################################################################################
+> 
+> 
+> mesh = data_on_mesh_with_covariates %>% mutate(bus = round(bus, 5), signal = round(signal, 5), stop = round(stop, 5), crossing = round(crossing, 5))
+> 
+> B.sigma = cbind(0, 1, 0, 
++                 mesh$SpeedLimit, 0,
++                 #scale(mesh$density_per_hour), 0
++                 mesh$bus, 0
++                 #mesh$signal, 0,
++                 #mesh$stop, 0,
++                 #mesh$crossing, 0
++ ) 
+> 
+> B.range = cbind(0, 0, 1, 
++                 0, mesh$SpeedLimit,
++                 #0, scale(mesh$density_per_hour)
++                 0, mesh$bus
++                 #0, mesh$signal,
++                 #0, mesh$stop,
++                 #0, mesh$crossing
++ ) 
+> 
+> 
+> # -----------------------------------------------------------------------------
+> 
+> # WM
+> 
+> # -----------------------------------------------------------------------------
+> 
+> rspde_model_nonstatWM <- rspde.metric_graph(sf_graph,
++                                             B.sigma = B.sigma,
++                                             B.range = B.range,
++                                             parameterization = "matern")
+> 
+> data_rspde_bru_nsWM <- graph_data_rspde(rspde_model_nonstatWM, loc_name = "loc")
+> 
+> cmp_nonstatWM = speed ~ -1 +
++   Intercept(1) +
++   SpeedLimit + 
++   #density_per_hour_normalized +
++   bus +
++   #signal +
++   #stop +
++   #crossing +
++   field(loc, model = rspde_model_nonstatWM)
+> 
+> rspde_fit_nonstat_WM <-
++   bru(cmp_nonstatWM,
++       data = data_rspde_bru_nsWM[["data"]],
++       family = "gaussian",
++       options = list(verbose = FALSE)
++   )
+> 
+> summary(rspde_fit_nonstat_WM)
+inlabru version: 2.10.1
+INLA version: 24.03.02
+Components:
+Intercept: main = linear(1), group = exchangeable(1L), replicate = iid(1L)
+SpeedLimit: main = linear(SpeedLimit), group = exchangeable(1L), replicate = iid(1L)
+bus: main = linear(bus), group = exchangeable(1L), replicate = iid(1L)
+field: main = cgeneric(loc), group = exchangeable(1L), replicate = iid(1L)
+Likelihoods:
+  Family: 'gaussian'
+    Data class: 'metric_graph_data', 'list'
+    Predictor: speed ~ .
+Time used:
+    Pre = 0.363, Running = 10110, Post = 3.67, Total = 10114 
+Fixed effects:
+             mean    sd 0.025quant 0.5quant 0.975quant   mode kld
+Intercept  23.530 5.950     11.885   23.513     35.273 23.513   0
+SpeedLimit  0.016 0.140     -0.261    0.017      0.291  0.017   0
+bus        -5.795 2.622    -10.946   -5.794     -0.651 -5.794   0
+
+Random effects:
+  Name	  Model
+    field CGeneric
+
+Model hyperparameters:
+                                          mean    sd 0.025quant 0.5quant 0.975quant   mode
+Precision for the Gaussian observations  0.193 0.046      0.123    0.186      0.303  0.171
+Theta1 for field                         3.084 0.266      2.556    3.085      3.605  3.091
+Theta2 for field                         1.842 0.328      1.255    1.824      2.542  1.737
+Theta3 for field                         0.024 0.016     -0.005    0.024      0.058  0.020
+Theta4 for field                        -0.147 0.028     -0.202   -0.148     -0.091 -0.148
+Theta5 for field                        -1.187 0.266     -1.680   -1.197     -0.635 -1.241
+Theta6 for field                         0.890 0.225      0.487    0.878      1.370  0.820
+Theta7 for field                        -2.921 0.286     -3.462   -2.928     -2.337 -2.959
+
+Deviance Information Criterion (DIC) ...............: 1067.24
+Deviance Information Criterion (DIC, saturated) ....: 416.92
+Effective number of parameters .....................: 167.63
+
+Watanabe-Akaike information criterion (WAIC) ...: 1096.57
+Effective number of parameters .................: 136.16
+
+Marginal log-Likelihood:  -856.13 
+ is computed 
+Posterior summaries for the linear predictor and the fitted values are computed
+(Posterior marginals needs also 'control.compute=list(return.marginals.predictor=TRUE)')
+
+> summary(rspde.result(rspde_fit_nonstat_WM, "field", rspde_model_nonstatWM))
+                    mean        sd  0.025quant   0.5quant 0.975quant       mode
+Theta1.matern  3.0840700 0.2663360  2.55581000  3.0854000  3.6045500  3.0910200
+Theta2.matern  1.8415100 0.3284910  1.25520000  1.8238000  2.5415600  1.7365600
+Theta3.matern  0.0242045 0.0161748 -0.00549351  0.0235389  0.0580201  0.0204271
+Theta4.matern -0.1473740 0.0281989 -0.20249100 -0.1475130 -0.0914402 -0.1481060
+Theta5.matern -1.1871100 0.2660000 -1.68029000 -1.1967400 -0.6349930 -1.2410100
+Theta6.matern  0.8903390 0.2252540  0.48728700  0.8783560  1.3695500  0.8199600
+nu             0.1058400 0.0292697  0.06109120  0.1014080  0.1752190  0.0925900
+> 
+> 
+> ################################################################################
+> ################################# STATIONARY MODEL #############################
+> ################################################################################
+> 
+> 
+> # -----------------------------------------------------------------------------------
+> 
+> # WM
+> 
+> # -----------------------------------------------------------------------------------
+> 
+> rspde_model_statWM <- rspde.metric_graph(sf_graph, parameterization = "matern")
+> 
+> data_rspde_bru_s_WM <- graph_data_rspde(rspde_model_statWM, loc_name = "loc")
+> 
+> cmp_statWM = speed ~ -1 +
++   Intercept(1) +
++   SpeedLimit + 
++   #density_per_hour_normalized +
++   bus +
++   #signal +
++   #stop +
++   #crossing +
++   field(loc, model = rspde_model_statWM)
+> 
+> rspde_fit_stat_WM <-
++   bru(cmp_statWM,
++       data = data_rspde_bru_s_WM[["data"]],
++       family = "gaussian",
++       options = list(verbose = FALSE)
++   )
+> 
+> summary(rspde_fit_stat_WM)
+inlabru version: 2.10.1
+INLA version: 24.03.02
+Components:
+Intercept: main = linear(1), group = exchangeable(1L), replicate = iid(1L)
+SpeedLimit: main = linear(SpeedLimit), group = exchangeable(1L), replicate = iid(1L)
+bus: main = linear(bus), group = exchangeable(1L), replicate = iid(1L)
+field: main = cgeneric(loc), group = exchangeable(1L), replicate = iid(1L)
+Likelihoods:
+  Family: 'gaussian'
+    Data class: 'metric_graph_data', 'list'
+    Predictor: speed ~ .
+Time used:
+    Pre = 0.186, Running = 139, Post = 1.68, Total = 141 
+Fixed effects:
+             mean    sd 0.025quant 0.5quant 0.975quant   mode kld
+Intercept  25.440 6.108     13.468   25.435     37.441 25.434   0
+SpeedLimit  0.012 0.141     -0.265    0.013      0.289  0.013   0
+bus        -6.880 2.641    -12.072   -6.876     -1.709 -6.876   0
+
+Random effects:
+  Name	  Model
+    field CGeneric
+
+Model hyperparameters:
+                                          mean   sd 0.025quant 0.5quant 0.975quant   mode
+Precision for the Gaussian observations  0.005 0.00      0.004    0.005      0.006  0.005
+Theta1 for field                        -2.201 4.70    -13.326   -1.451      4.210  2.677
+Theta2 for field                         1.427 2.46     -3.694    1.505      5.988  1.927
+Theta3 for field                        -1.592 1.54     -5.215   -1.357      0.543 -0.301
+
+Deviance Information Criterion (DIC) ...............: 1493.17
+Deviance Information Criterion (DIC, saturated) ....: 186.91
+Effective number of parameters .....................: 8.79
+
+Watanabe-Akaike information criterion (WAIC) ...: 1493.93
+Effective number of parameters .................: 9.42
+
+Marginal log-Likelihood:  -771.76 
+ is computed 
+Posterior summaries for the linear predictor and the fitted values are computed
+(Posterior marginals needs also 'control.compute=list(return.marginals.predictor=TRUE)')
+
+> summary(rspde.result(rspde_fit_stat_WM, "field", rspde_model_statWM))
+             mean         sd  0.025quant 0.5quant 0.975quant        mode
+std.dev  8.236410  23.673500 1.69003e-10 0.275074   70.13400 1.69003e-10
+range   50.027600 228.589000 2.65227e-02 4.693380  382.80400 2.91523e-03
+nu       0.502245   0.387283 1.12913e-02 0.426432    1.27159 7.25865e-03
+> 
+> 
+> 
+> # cross validation
+> 
+> models <- list(nonstatWM = rspde_fit_nonstat_WM, statWM = rspde_fit_stat_WM)
+> 
+> cv_result <- cross_validation(models, cv_type = "k-fold", print = FALSE)
+> cv_result
+      Model              dss              mse              crps            scrps
+1 nonstatWM 6.94304297557334  231.75916985747 -8.78013855405698 2.48781615341521
+2    statWM 6.52110843933532 219.384219134134 -8.27362772313202 2.41309249395135
+       Best           statWM           statWM         nonstatWM           statWM
+> # 
+> 
+> save.image("stat_vs_nonstat_gaussian0.2.RData")

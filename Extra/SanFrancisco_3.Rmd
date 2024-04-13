@@ -1,0 +1,248 @@
+---
+title: "SF"
+author: ""
+date: "`r format(Sys.time(), 'October %d, %Y')`"
+mainfont: Times New Roman
+output:
+  html_document:
+    highlight: pygments
+    toc: no
+    toc_float:
+      collapsed: no
+      smooth_scroll: yes
+    number_sections: no
+    fig_caption: yes
+  pdf_document:
+    toc: no
+    number_sections: true
+fontsize: 12pt
+geometry: margin=2cm
+editor_options:
+  markdown:
+    wrap: 72
+always_allow_html: true
+---
+
+```{=html}
+<style type="text/css">
+.main-container {
+  max-width: 2000px;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
+```
+```{=html}
+<style type="text/css">
+
+body, td {
+   font-size: 14px;
+}
+code.r{
+  font-size: 14px;
+}
+pre {
+  font-size: 14px
+}
+</style>
+```
+
+```{r}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+```
+
+```{r}
+library(MetricGraph)
+library(sf)
+library(mapview)
+library(dplyr)
+library(plotly)
+library(lubridate)
+library(ggplot2)
+library(gganimate)
+library(MASS)
+```
+
+# LOADING THE DATA
+
+The file `"onlybuses.RData"` only contains `busdataset` object (an `sf` object) with the speed observations corresponding to buses on the streets of San Francisco, CA, USA.
+
+
+```
+{r}
+load("onlybuses.RData") # speed data corresponding to only the buses
+```
+
+We stress that `busdataset` contains speed observations recorded during January 2021. In total, `busdataset` contains around 11M observations (without taking into account zero speed observations, which were removed when creating `busdataset`). In order to make the data more manageable, we decided to just consider data corresponding to every Thursday of January from 1PM to 2PM. Another reason for such specific (and periodic) consideration is to treat the data as **replicates**. 
+
+In the chunk below, the `sf` object `only1PMevery7` contains the data after applying the aforementioned considerations (now 123344 observations).
+
+```{r}
+load("Data_files/Data_in_graph_coordinates_for_every7days/data_on_graph_hour_13.RData")
+```
+
+The chunk below produces a table with a summary of the data by groups (the grouping variable is `day`). Note that `only1PMevery7` is only used, not changed.
+
+```{r}
+data_on_graph %>% group_by(day) %>%
+summarise(mean = mean(speed), median = median(speed), min = min(speed), max = max(speed), zero_obs = sum(speed == 0), total = length(speed)) %>% mutate(prop = zero_obs*100/total)
+```
+
+Because the speed limits in San Francisco do not exceed 65 mph, we removed these 37 (in total) observations that exceed 65 mph. They only correspond to 0.03293456% of the total data, probably it is safe to remove them.
+
+
+To remove these 37 observations and to avoid dealing with some complications when using `sf` objects, we create a new data set named `data`, which is essentially `only1PMevery7` without the `geometry` column and without the above-65mph observations. Note that we have renamed `Average.Speed` by `speed` and `day` by `group`.
+
+```{r}
+data = data_on_graph
+```
+
+Below we take a look at the data distribution of all groups.
+
+```
+{r}
+data_on_graph$speed %>% density() %>% plot(main = "Speed observations, all groups")
+```
+
+```{r}
+data_no_zero = data_on_graph %>% filter(speed > 0)
+#data_no_zero$speed %>% density() %>% plot(main = "Speed observations, all groups")
+
+```
+
+
+As shown, the data does not look Gaussian. It is right skewed. Now let us take a look at each group individually.
+
+```
+{r}
+par(mfrow = c(2,2))
+for (i in 1:4) {
+  (data_no_zero %>% filter(day == i))$speed %>% density() %>% plot(main = bquote("Speed observations, group = " ~ .(i)))
+}
+```
+
+We observe that the data does not look Gaussian for any of the groups either. One thing we should point out is that the distribution of the data for each group (that is, for each replicate) looks very alike, which may be a good indication that treating the groups as replicates is ok.
+
+
+```
+{r}
+par(mfrow = c(2,2))
+for (i in 1:4) {
+  (data %>% filter(group == i))$speed %>% MASS::truehist(nbins = 100, main = bquote("Speed observations, group = " ~ .(i)))
+}
+```
+
+To further study the normality of the data, we consider a QQplot below.
+
+```
+{r}
+# for all the data
+aux = data$speed
+aux %>% qqnorm(main = bquote("Normal QQ plot, all groups"))
+aux %>% qqline()
+```
+
+
+```
+{r}
+# for each group
+par(mfrow = c(2,2))
+for (i in 1:4) {
+  aux = (data %>% filter(day == i))$speed 
+  aux %>% qqnorm(main = bquote("Normal QQ plot group = " ~ .(i)))
+  aux %>% qqline()
+}
+```
+
+As expected, the data is not normal.
+
+## LOG transformation
+
+Let us try a log transformation. Below are the plots of the estimated densities after the log transformation.
+
+```{r}
+# for all the data
+data_no_zero$speed %>% log() %>% density() %>% plot(main = "Speed observations, all groups, log transformation")
+```
+
+The crests at the left of the empirical density correspond to `log(1) = 0`, `log(2) = 0.69`, `log(3) = 1.09`, etc. Let us print the data for values of `speed` less than 5.
+
+```{r}
+(data %>% filter(speed < 5) %>% dplyr::select(speed) %>% as.vector())$speed %>% plot(main = "Speed observations < 5")
+```
+
+As shown, the speed observations are recorded as integers.
+
+```{r}
+# for each group
+par(mfrow = c(2,2))
+for (i in 1:4) {
+(data %>% filter(group == i))$speed %>% log() %>% density() %>% plot(main = bquote("Speed observations, group = " ~ .(i)))
+}
+```
+
+Let us plot the QQplots of the transformed data.
+
+```{r}
+# for all the data
+aux = data$speed %>% log()
+aux %>% qqnorm(main = bquote("Normal QQ plot, all groups, log transformation"))
+aux %>% qqline()
+```
+
+Now the QQplots of the transformed data for each group.
+
+```{r}
+# for each group
+par(mfrow = c(2,2))
+for (i in 1:4) {
+  aux = (data %>% filter(group == i))$speed %>% log()
+  aux %>% qqnorm(main = bquote("Normal QQ plot group = " ~ .(i)))
+  aux %>% qqline()
+}
+```
+
+## BOXCOX transformation
+
+As shown, the transformation did not do much benefit. Let us try a `boxcox` transformation using all the data.
+
+```{r}
+aux = boxcox(data$speed ~ 1, plotit = F)
+lambda <- aux$x[which.max(aux$y)]
+trans_speed = forecast::BoxCox(data$speed, lambda)
+
+par(mfrow = c(1,2))
+trans_speed %>% density() %>% plot(main = "Speed observations, all groups, boxcox transformation")
+trans_speed %>% qqnorm(main = bquote("Normal QQ plot, all groups, boxcox transformation"))
+trans_speed %>% qqline()
+```
+
+```{r}
+library(nortest)
+ad.test(trans_speed) 
+```
+
+```{r}
+ks.test(trans_speed, "pnorm") 
+```
+
+```{r}
+shapiro.test(sample(trans_speed, 4999))
+```
+
+This shows that the boxcox transformed data is not normal.
+
+## DEMEAN LOG transformation
+
+```{r}
+aux = log(data$speed) - mean(log(data$speed))
+
+par(mfrow = c(1,2))
+aux %>% density() %>% plot(main = "Speed observations, all groups, demeanlog transformation")
+aux %>% qqnorm(main = bquote("Normal QQ plot, all groups, demeanlog transformation"))
+aux %>% qqline()
+```
+
+Sadly, any of the proposed transformations really worked.
+
+

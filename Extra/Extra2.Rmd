@@ -1,0 +1,98 @@
+---
+title: "SF"
+author: ""
+date: "`r format(Sys.time(), 'October %d, %Y')`"
+mainfont: Times New Roman
+output:
+  html_document:
+    highlight: pygments
+    toc: no
+    toc_float:
+      collapsed: no
+      smooth_scroll: yes
+    number_sections: no
+    fig_caption: yes
+  pdf_document:
+    toc: no
+    number_sections: true
+fontsize: 12pt
+geometry: margin=2cm
+editor_options:
+  markdown:
+    wrap: 72
+always_allow_html: true
+---
+
+```{=html}
+<style type="text/css">
+.main-container {
+  max-width: 2000px;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
+```
+```{=html}
+<style type="text/css">
+
+body, td {
+   font-size: 14px;
+}
+code.r{
+  font-size: 14px;
+}
+pre {
+  font-size: 14px
+}
+</style>
+```
+
+```{r}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+```
+
+```{r}
+library(MetricGraph)
+library(sf)
+library(mapview)
+library(dplyr)
+library(plotly)
+library(lubridate)
+library(ggplot2)
+library(gganimate)
+library(MASS)
+library(osmdata)
+library(tidyr)
+```
+
+# LOADING THE DATA
+
+```{r}
+load("~/Desktop/Spring 2024/Sanfrancisco_data_analysis/Graph_objects/graph_removed_6and7FRC_TomTom_data.RData")
+load("~/Desktop/Spring 2024/Sanfrancisco_data_analysis/Data_files/onlybuses.RData")
+```
+
+## FILTERING
+
+```{r}
+only1PM = busdataset %>% 
+      mutate(hour = as.integer(format(date, "%I"))) %>% # to later use filter(hour == 1)
+      filter(AM_PM == "PM") %>% # only PM observations # to remove AM observations
+      filter(hour == 1) %>% # to select observations between 1pm to 2pm
+      dplyr::select(-date, -AM_PM, -hour, -Vehicle.ID) # to remove useless variables
+    
+    
+only1PMevery7 = only1PM %>% 
+      filter(day %in% c(7,14,21,28)) %>% # to select these 4 days
+      filter( Average.Speed < 75) %>% # to remove some atypical speed observations
+      distinct(geometry, .keep_all = TRUE) %>% # to remove observations with repeated location
+      mutate(day = day/7) # so that the groups are 1,2,3,4
+```
+
+
+## ADDING THE DATA
+
+```{r}
+rem_obs = sf_graph$add_observations(data = only1PMevery7, group = "day", tolerance = 0.2)
+```
+
