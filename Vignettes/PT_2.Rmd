@@ -70,7 +70,7 @@ knitr::opts_chunk$set(
   retina = 2
 )
 rm(list = ls())
-#set.seed(1982)
+set.seed(1982)
 ```
 
 # Preprocessing
@@ -1057,8 +1057,8 @@ get.index = points %>%
 ########### choose here if all points or some points are included ##############
 ################################################################################
 
-chosen.points = points[get.index$index, ] %>% dplyr::select(speed)
-#chosen.points = points %>% dplyr::select(speed)
+#chosen.points = points[get.index$index, ] %>% dplyr::select(speed)
+chosen.points = points %>% dplyr::select(speed)
 
 data.frame(total.points = nrow(points), chosen.points = nrow(chosen.points))
 
@@ -1132,6 +1132,7 @@ legend("bottomright", legend = c("Stationary", "Non-stationary"), col = c("black
 
 end_time <- Sys.time()
 execution_time <- end_time - start_time
+print(execution_time)
 ```
 
 
