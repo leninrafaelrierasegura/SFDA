@@ -2,4 +2,30 @@
 title: "About This Website"
 ---
 
-More about this website.
+- Visit [**Prepreocessing**](Vignettes/dp.html) tab to see the workflow up to today.
+
+Here is a short description of the results under **Models** tab.
+
+1. [**Models/Model 1**](Vignettes/PT_1.html): Cross-validation with 
+
+    - 3527 speed observations
+    
+    - data as replicates
+
+2. [**Models/Model 2**](Vignettes/PT_2.html): Cross-validation with
+
+    - all speed observations
+    
+    - data as replicates
+
+3. [**Models/Model 3**](Vignettes/PT_3.html): Cross-validation with
+
+    - all and some speed observations
+    
+    - data as a whole
+
+4. [**Models/Model 4**](Vignettes/PT_4.html): Cross-validation with
+
+    - all and some speed observations
+    
+    - data as replicates (this is the only difference with Model 3)

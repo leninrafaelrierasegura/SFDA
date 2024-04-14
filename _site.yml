@@ -25,6 +25,10 @@ navbar:
           href: Vignettes/PT_1.html
         - text: "Model 2"
           href: Vignettes/PT_2.html
+        - text: "Model 3"
+          href: Vignettes/PT_3.html
+        - text: "Model 4"
+          href: Vignettes/PT_4.html
   right:
     - icon: fa-globe
       href: https://leninrafaelrierasegura.github.io/

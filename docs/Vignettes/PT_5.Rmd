@@ -1,0 +1,1115 @@
+---
+title: "Model4"
+author: "Several authors"
+date: "Created: 12-04-2024. Last modified: `r format(Sys.time(), '%d-%m-%Y.')`"
+output:
+  html_document:
+    mathjax: "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
+    highlight: pygments
+    theme: flatly
+    code_folding: show
+    df_print: paged
+    toc: true
+    toc_float:
+      collapsed: true
+      smooth_scroll: true
+    number_sections: true
+    fig_caption: true
+always_allow_html: true
+---
+
+```{r, eval = FALSE, echo = FALSE}
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+######### DO NOT FORGET TO CHANGE THE TITLE EVERY TIME YOU FIT A MODEL #########
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+```
+
+
+
+```{css}
+body .main-container {
+  max-width: 100% !important;
+  width: 100% !important;
+}
+body {
+  max-width: 100% !important;
+}
+
+body, td {
+   font-size: 16px;
+}
+code.r{
+  font-size: 14px;
+}
+pre {
+  font-size: 14px
+}
+```
+
+
+
+Let us set some global options for all code chunks in this document.
+
+
+```{r}
+knitr::opts_chunk$set(
+  message = FALSE,    # Disable messages printed by R code chunks
+  warning = FALSE,    # Disable warnings printed by R code chunks
+  echo = TRUE,        # Show R code within code chunks in output
+  include = TRUE,     # Include both R code and its results in output
+  eval = TRUE,       # Evaluate R code chunks
+  cache = FALSE,       # Enable caching of R code chunks for faster rendering
+  fig.align = "center",
+  out.width = "100%",
+  retina = 2,
+  error = 1
+)
+rm(list = ls())
+set.seed(1982)
+```
+
+# Preprocessing
+
+Let us now load some required libraries.
+
+```{r}
+# Load required libraries
+library(INLA)
+library(inlabru)
+library(rSPDE)
+library(MetricGraph)
+
+library(plotly)
+library(dplyr)
+library(tidyr)
+library(MASS)
+library(glmnet)
+library(car)
+library(ggplot2)
+library(plotly)
+
+library(sf)
+
+library(here)
+```
+
+We now define some `R` functions with self-explanatory names.
+
+```{r}
+# Functions to manipulate the data
+standardize <- function(vector) {return((vector - mean(vector)) / sd(vector))}
+minmax_scaling <- function(x) {return((x - min(x)) / (max(x) - min(x)))}
+convert_to_binary <- function(input_vector) {return(ifelse(input_vector != 0, 1, 0))}
+```
+
+### Prepare the data
+
+The following chunk uses the function `creates_covariates_on_mesh()` defined on `Preprocessing/28Window.case.file4.addcovariatesonmesh.R` to build a mesh (on the same graph as the one used in this file) and compute the value of all available covariates on the mesh nodes. 
+
+Press the `Show` button below if you want to see the body of the `creates_covariates_on_mesh()` function.
+
+```{r covariates-for-graph-mesh, eval = FALSE, class.source = "fold-hide"}
+creates_covariates_on_mesh = function(h){
+  
+  library(MetricGraph)
+  library(dplyr)
+  # loading the data
+  load("Graph_objects/graph_construction_28_03_2024partialtomtomwhichlonglatsf.RData")
+  load("Data_files/data_day7142128_hour13_with_no_consecutive_zeros_partialtomtom_graph_processed.RData")
+  load("Data_files/stops_data_on_graph_partialtomtom.RData")
+  
+  # length of each edge
+  edge_length = sf_graph$get_edge_lengths()
+  
+  # matrix of vertices, the vertices in the i-th are the vertices that define edge i
+  vertex_matrix = sf_graph$E 
+  
+  sf_graph$add_observations(data = data_on_graph, group = "day", clear_obs = TRUE)
+  
+  sf_graph$build_mesh(h = h)
+  
+  data_on_mesh = sf_graph$edgeweight_to_data(mesh = TRUE, add = FALSE, return = TRUE) %>% filter(.group == 1)
+  
+  data_on_graph = data_on_mesh
+  
+  # getting the edge_number and distance_on_edge columns from data
+  data_on_graph_red = data.frame(edge_number = data_on_graph$.edge_number, 
+                                 distance_on_edge = data_on_graph$.distance_on_edge)
+  
+  
+  # defining function that decays from 1
+  fun = function(x){return(exp(-((x/0.05)^2)))}
+  
+  
+  # ------------------------------------------------------------------------------------------------------------------
+  # For bus_stop
+  # ------------------------------------------------------------------------------------------------------------------
+  
+  
+  
+  # getting the sign_data (this could be bus_stop, traffic_signals, stop or crossing)
+  sign_data = traffic_stops %>% 
+    filter(highway == "bus_stop") %>% 
+    as.data.frame() %>% 
+    dplyr::select(.edge_number, .distance_on_edge) %>%
+    rename(edge_number = .edge_number, distance_on_edge = .distance_on_edge)
+  
+  # initializing a vector to store the edges numbers from sign_data (they are not necessarily unique)
+  edges = c()
+  
+  borderline = 0.1
+  # looping over the signs
+  
+  
+  list_for_indices = list()
+  list_for_indices[[(sf_graph$nE + 1)]] = "tmp1"
+  list_for_max_values = list()
+  list_for_max_values[[(sf_graph$nE + 1)]] = "tmp2"
+  
+  # ----------------------------------------------------------------------------------------------
+  
+  for (k in 1:nrow(sign_data)) {
+    # getting the sign at iteration i
+    sign = sign_data[k,]
+    # getting the edge that contains the sign
+    edge_number = sign[[1]]
+    # storing the edge_number into edges vector
+    edges[k] = edge_number
+    # getting the distance on the edge of the sign
+    distance_on_edge = sign[[2]]
+    
+    original_distance = as.numeric(edge_length[edge_number])
+    center_sign = original_distance*distance_on_edge
+    vertices = vertex_matrix[edge_number,]
+    
+    if(center_sign <= borderline){
+      # going
+      going_edges = which(vertex_matrix[,1] %in% vertices[1])
+      if(length(going_edges) > 0){
+        for (i in 1:length(going_edges)) {
+          center_going = -center_sign
+          idx = which(data_on_graph_red$edge_number == going_edges[i])
+          list_for_indices[[going_edges[i]]] = idx
+          aux = data_on_graph_red$distance_on_edge[idx]*as.numeric(edge_length[going_edges[i]])
+          eval = matrix(fun(aux - center_going), ncol = 1)
+          list_for_max_values[[going_edges[i]]] = apply(cbind(eval, list_for_max_values[[going_edges[i]]]) , 1, max)
+        }
+      }
+      
+      # coming
+      coming_edges = which(vertex_matrix[,2] %in% vertices[1])
+      if(length(coming_edges) > 0){
+        for (i in 1:length(coming_edges)) {
+          center_coming = as.numeric(edge_length[coming_edges[i]]) + center_sign
+          idx = which(data_on_graph_red$edge_number == coming_edges[i])
+          list_for_indices[[coming_edges[i]]] = idx
+          aux = data_on_graph_red$distance_on_edge[idx]*as.numeric(edge_length[coming_edges[i]])
+          eval = matrix(fun(aux - center_coming), ncol = 1)
+          list_for_max_values[[coming_edges[i]]] = apply(cbind(eval, list_for_max_values[[coming_edges[i]]]) , 1, max)
+        }
+      }
+      
+    }
+    if(center_sign >= (original_distance- borderline)){
+      # going
+      going_edges = which(vertex_matrix[,1] %in% vertices[2])
+      if(length(going_edges) > 0){
+        for (i in 1:length(going_edges)) {
+          center_going = -(original_distance - center_sign)
+          idx = which(data_on_graph_red$edge_number == going_edges[i])
+          list_for_indices[[going_edges[i]]] = idx
+          aux = data_on_graph_red$distance_on_edge[idx]*as.numeric(edge_length[going_edges[i]])
+          eval = matrix(fun(aux - center_going), ncol = 1)
+          list_for_max_values[[going_edges[i]]] = apply(cbind(eval, list_for_max_values[[going_edges[i]]]) , 1, max)
+        }
+      }
+      # coming
+      coming_edges = which(vertex_matrix[,2] %in% vertices[2])
+      if(length(coming_edges) > 0){
+        for (i in 1:length(coming_edges)) {
+          center_coming = as.numeric(edge_length[coming_edges[i]]) + (original_distance - center_sign)
+          idx = which(data_on_graph_red$edge_number == coming_edges[i])
+          list_for_indices[[coming_edges[i]]] = idx
+          aux = data_on_graph_red$distance_on_edge[idx]*as.numeric(edge_length[coming_edges[i]])
+          eval = matrix(fun(aux - center_coming), ncol = 1)
+          list_for_max_values[[coming_edges[i]]] = apply(cbind(eval, list_for_max_values[[coming_edges[i]]]) , 1, max)
+        } # end for
+      }# end if
+    } # end else
+  }
+  
+  
+  #----------------------------------------------------------------------------------------------------
+  # we compute covariate at the points on each edge just taking into account only signs in the same edge
+  for (k in 1:nrow(sign_data)) {
+    # getting the sign at iteration i
+    sign = sign_data[k,]
+    # getting the edge that contains the sign
+    edge_number = sign[[1]]
+    # storing the edge_number into edges vector
+    edges[k] = edge_number
+    # getting the distance on the edge of the sign
+    distance_on_edge = sign[[2]]
+    
+    # indices of the data that has edge numbers equal to edge_number (in practice, getting the identity of the point the edge with number edge_number)
+    idx = which(data_on_graph_red$edge_number == edge_number)
+    list_for_indices[[edge_number]] = cbind(idx, list_for_indices[[edge_number]]) # to repeat the columns
+    # getting the distance of the points in the edge of interest
+    aux = data_on_graph_red$distance_on_edge[idx]
+    # computing the value of the covariate (with normalized and no normalized distance)
+    eval = matrix(fun(as.numeric(edge_length[edge_number])*(aux - distance_on_edge)), ncol = 1)
+    list_for_max_values[[edge_number]] = apply(cbind(eval, list_for_max_values[[edge_number]]) , 1, max)
+  }
+  
+  list_for_indices[[(sf_graph$nE + 1)]] = NULL
+  list_for_max_values[[(sf_graph$nE + 1)]] = NULL
+  
+  # drop NULL members
+  filtered_max_values = list_for_max_values[!sapply(list_for_max_values, is.null)]
+  filtered_indices = list_for_indices[!sapply(list_for_indices, is.null)]
+  
+  new_filtered_max_values = filtered_max_values[sapply(filtered_max_values, function(x) length(x) > 0)]
+  new_filtered_indices = filtered_indices[sapply(filtered_indices, function(x) length(x) > 0)]
+  
+  
+  # Creating number of signs covariate ----------------------------------------------------------
+  
+  cov_number_sign = rep(0, nrow(data_on_graph_red))
+  
+  for (i in 1:length(new_filtered_indices)) {
+    if(length(dim(new_filtered_indices[[i]])) == 2){ # that is, if it is a matrix
+      cov_number_sign[new_filtered_indices[[i]][,1]] = ncol(new_filtered_indices[[i]])
+      new_filtered_indices[[i]] = as.vector(new_filtered_indices[[i]][,1]) # just getting one column
+    }
+  }
+  
+  # -------------------------------------------------------------------------------------------------
+  
+  covariate_alltogether = data.frame(all_indices = unlist(new_filtered_indices),
+                                     all_max_values = unlist(new_filtered_max_values))
+  
+  
+  
+  final_cov = rep(0, nrow(data_on_graph_red))
+  final_cov[covariate_alltogether$all_indices] = covariate_alltogether$all_max_values
+  
+  final1 = data_on_graph_red %>% mutate(final_cov = final_cov, cov_number_sign = cov_number_sign)
+  
+  
+  # ------------------------------------------------------------------------------------------------------------------
+  # For traffic_signals
+  # ------------------------------------------------------------------------------------------------------------------
+  
+  
+  # getting the sign_data (this could be bus_stop, traffic_signals, stop or crossing)
+  
+  sign_data = traffic_stops %>% 
+    filter(highway == "traffic_signals") %>% 
+    as.data.frame() %>% 
+    dplyr::select(.edge_number, .distance_on_edge) %>%
+    rename(edge_number = .edge_number, distance_on_edge = .distance_on_edge)
+  
+  # initializing a vector to store the edges numbers from sign_data (they are not necessarily unique)
+  edges = c()
+  
+  borderline = 0.05
+  # looping over the signs
+  
+  
+  list_for_indices = list()
+  list_for_indices[[(sf_graph$nE + 1)]] = "tmp1"
+  list_for_max_values = list()
+  list_for_max_values[[(sf_graph$nE + 1)]] = "tmp2"
+  
+  # ----------------------------------------------------------------------------------------------
+  
+  for (k in 1:nrow(sign_data)) {
+    # getting the sign at iteration i
+    sign = sign_data[k,]
+    # getting the edge that contains the sign
+    edge_number = sign[[1]]
+    # storing the edge_number into edges vector
+    edges[k] = edge_number
+    # getting the distance on the edge of the sign
+    distance_on_edge = sign[[2]]
+    
+    original_distance = as.numeric(edge_length[edge_number])
+    center_sign = original_distance*distance_on_edge
+    vertices = vertex_matrix[edge_number,]
+    
+    if(center_sign <= borderline){
+      # going
+      going_edges = which(vertex_matrix[,1] %in% vertices[1])
+      if(length(going_edges) > 0){
+        for (i in 1:length(going_edges)) {
+          center_going = -center_sign
+          idx = which(data_on_graph_red$edge_number == going_edges[i])
+          list_for_indices[[going_edges[i]]] = idx
+          aux = data_on_graph_red$distance_on_edge[idx]*as.numeric(edge_length[going_edges[i]])
+          eval = matrix(fun(aux - center_going), ncol = 1)
+          list_for_max_values[[going_edges[i]]] = apply(cbind(eval, list_for_max_values[[going_edges[i]]]) , 1, max)
+        }
+      }
+      
+      # coming
+      coming_edges = which(vertex_matrix[,2] %in% vertices[1])
+      if(length(coming_edges) > 0){
+        for (i in 1:length(coming_edges)) {
+          center_coming = as.numeric(edge_length[coming_edges[i]]) + center_sign
+          idx = which(data_on_graph_red$edge_number == coming_edges[i])
+          list_for_indices[[coming_edges[i]]] = idx
+          aux = data_on_graph_red$distance_on_edge[idx]*as.numeric(edge_length[coming_edges[i]])
+          eval = matrix(fun(aux - center_coming), ncol = 1)
+          list_for_max_values[[coming_edges[i]]] = apply(cbind(eval, list_for_max_values[[coming_edges[i]]]) , 1, max)
+        }
+      }
+      
+    }
+    if(center_sign >= (original_distance- borderline)){
+      # going
+      going_edges = which(vertex_matrix[,1] %in% vertices[2])
+      if(length(going_edges) > 0){
+        for (i in 1:length(going_edges)) {
+          center_going = -(original_distance - center_sign)
+          idx = which(data_on_graph_red$edge_number == going_edges[i])
+          list_for_indices[[going_edges[i]]] = idx
+          aux = data_on_graph_red$distance_on_edge[idx]*as.numeric(edge_length[going_edges[i]])
+          eval = matrix(fun(aux - center_going), ncol = 1)
+          list_for_max_values[[going_edges[i]]] = apply(cbind(eval, list_for_max_values[[going_edges[i]]]) , 1, max)
+        }
+      }
+      # coming
+      coming_edges = which(vertex_matrix[,2] %in% vertices[2])
+      if(length(coming_edges) > 0){
+        for (i in 1:length(coming_edges)) {
+          center_coming = as.numeric(edge_length[coming_edges[i]]) + (original_distance - center_sign)
+          idx = which(data_on_graph_red$edge_number == coming_edges[i])
+          list_for_indices[[coming_edges[i]]] = idx
+          aux = data_on_graph_red$distance_on_edge[idx]*as.numeric(edge_length[coming_edges[i]])
+          eval = matrix(fun(aux - center_coming), ncol = 1)
+          list_for_max_values[[coming_edges[i]]] = apply(cbind(eval, list_for_max_values[[coming_edges[i]]]) , 1, max)
+        } # end for
+      }# end if
+    } # end else
+  }
+  
+  
+  #----------------------------------------------------------------------------------------------------
+  # we compute covariate at the points on each edge just taking into account only signs in the same edge
+  for (k in 1:nrow(sign_data)) {
+    # getting the sign at iteration i
+    sign = sign_data[k,]
+    # getting the edge that contains the sign
+    edge_number = sign[[1]]
+    # storing the edge_number into edges vector
+    edges[k] = edge_number
+    # getting the distance on the edge of the sign
+    distance_on_edge = sign[[2]]
+    
+    # indices of the data that has edge numbers equal to edge_number (in practice, getting the identity of the point the edge with number edge_number)
+    idx = which(data_on_graph_red$edge_number == edge_number)
+    list_for_indices[[edge_number]] = cbind(idx, list_for_indices[[edge_number]]) # to repeat the columns
+    # getting the distance of the points in the edge of interest
+    aux = data_on_graph_red$distance_on_edge[idx]
+    # computing the value of the covariate (with normalized and no normalized distance)
+    eval = matrix(fun(as.numeric(edge_length[edge_number])*(aux - distance_on_edge)), ncol = 1)
+    list_for_max_values[[edge_number]] = apply(cbind(eval, list_for_max_values[[edge_number]]) , 1, max)
+  }
+  
+  list_for_indices[[(sf_graph$nE + 1)]] = NULL
+  list_for_max_values[[(sf_graph$nE + 1)]] = NULL
+  
+  # drop NULL members
+  filtered_max_values = list_for_max_values[!sapply(list_for_max_values, is.null)]
+  filtered_indices = list_for_indices[!sapply(list_for_indices, is.null)]
+  
+  new_filtered_max_values = filtered_max_values[sapply(filtered_max_values, function(x) length(x) > 0)]
+  new_filtered_indices = filtered_indices[sapply(filtered_indices, function(x) length(x) > 0)]
+  
+  
+  # Creating number of signs covariate ----------------------------------------------------------
+  
+  cov_number_sign = rep(0, nrow(data_on_graph_red))
+  
+  for (i in 1:length(new_filtered_indices)) {
+    if(length(dim(new_filtered_indices[[i]])) == 2){ # that is, if it is a matrix
+      cov_number_sign[new_filtered_indices[[i]][,1]] = ncol(new_filtered_indices[[i]])
+      new_filtered_indices[[i]] = as.vector(new_filtered_indices[[i]][,1]) # just getting one column
+    }
+  }
+  
+  # -------------------------------------------------------------------------------------------------
+  
+  covariate_alltogether = data.frame(all_indices = unlist(new_filtered_indices),
+                                     all_max_values = unlist(new_filtered_max_values))
+  
+  
+  
+  final_cov = rep(0, nrow(data_on_graph_red))
+  final_cov[covariate_alltogether$all_indices] = covariate_alltogether$all_max_values
+  
+  final2 = data_on_graph_red %>% mutate(final_cov = final_cov, cov_number_sign = cov_number_sign)
+  
+  
+  # ------------------------------------------------------------------------------------------------------------------
+  # For stop
+  # ------------------------------------------------------------------------------------------------------------------
+  
+  
+  # getting the sign_data (this could be bus_stop, traffic_signals, stop or crossing)
+  
+  sign_data = traffic_stops %>% 
+    filter(highway == "stop") %>% 
+    as.data.frame() %>% 
+    dplyr::select(.edge_number, .distance_on_edge) %>%
+    rename(edge_number = .edge_number, distance_on_edge = .distance_on_edge)
+  
+  # initializing a vector to store the edges numbers from sign_data (they are not necessarily unique)
+  edges = c()
+  
+  borderline = 0.05
+  # looping over the signs
+  
+  
+  list_for_indices = list()
+  list_for_indices[[(sf_graph$nE + 1)]] = "tmp1"
+  list_for_max_values = list()
+  list_for_max_values[[(sf_graph$nE + 1)]] = "tmp2"
+  
+  # ----------------------------------------------------------------------------------------------
+  
+  for (k in 1:nrow(sign_data)) {
+    # getting the sign at iteration i
+    sign = sign_data[k,]
+    # getting the edge that contains the sign
+    edge_number = sign[[1]]
+    # storing the edge_number into edges vector
+    edges[k] = edge_number
+    # getting the distance on the edge of the sign
+    distance_on_edge = sign[[2]]
+    
+    original_distance = as.numeric(edge_length[edge_number])
+    center_sign = original_distance*distance_on_edge
+    vertices = vertex_matrix[edge_number,]
+    
+    if(center_sign <= borderline){
+      # going
+      going_edges = which(vertex_matrix[,1] %in% vertices[1])
+      if(length(going_edges) > 0){
+        for (i in 1:length(going_edges)) {
+          center_going = -center_sign
+          idx = which(data_on_graph_red$edge_number == going_edges[i])
+          list_for_indices[[going_edges[i]]] = idx
+          aux = data_on_graph_red$distance_on_edge[idx]*as.numeric(edge_length[going_edges[i]])
+          eval = matrix(fun(aux - center_going), ncol = 1)
+          list_for_max_values[[going_edges[i]]] = apply(cbind(eval, list_for_max_values[[going_edges[i]]]) , 1, max)
+        }
+      }
+      
+      # coming
+      coming_edges = which(vertex_matrix[,2] %in% vertices[1])
+      if(length(coming_edges) > 0){
+        for (i in 1:length(coming_edges)) {
+          center_coming = as.numeric(edge_length[coming_edges[i]]) + center_sign
+          idx = which(data_on_graph_red$edge_number == coming_edges[i])
+          list_for_indices[[coming_edges[i]]] = idx
+          aux = data_on_graph_red$distance_on_edge[idx]*as.numeric(edge_length[coming_edges[i]])
+          eval = matrix(fun(aux - center_coming), ncol = 1)
+          list_for_max_values[[coming_edges[i]]] = apply(cbind(eval, list_for_max_values[[coming_edges[i]]]) , 1, max)
+        }
+      }
+      
+    }
+    if(center_sign >= (original_distance- borderline)){
+      # going
+      going_edges = which(vertex_matrix[,1] %in% vertices[2])
+      if(length(going_edges) > 0){
+        for (i in 1:length(going_edges)) {
+          center_going = -(original_distance - center_sign)
+          idx = which(data_on_graph_red$edge_number == going_edges[i])
+          list_for_indices[[going_edges[i]]] = idx
+          aux = data_on_graph_red$distance_on_edge[idx]*as.numeric(edge_length[going_edges[i]])
+          eval = matrix(fun(aux - center_going), ncol = 1)
+          list_for_max_values[[going_edges[i]]] = apply(cbind(eval, list_for_max_values[[going_edges[i]]]) , 1, max)
+        }
+      }
+      # coming
+      coming_edges = which(vertex_matrix[,2] %in% vertices[2])
+      if(length(coming_edges) > 0){
+        for (i in 1:length(coming_edges)) {
+          center_coming = as.numeric(edge_length[coming_edges[i]]) + (original_distance - center_sign)
+          idx = which(data_on_graph_red$edge_number == coming_edges[i])
+          list_for_indices[[coming_edges[i]]] = idx
+          aux = data_on_graph_red$distance_on_edge[idx]*as.numeric(edge_length[coming_edges[i]])
+          eval = matrix(fun(aux - center_coming), ncol = 1)
+          list_for_max_values[[coming_edges[i]]] = apply(cbind(eval, list_for_max_values[[coming_edges[i]]]) , 1, max)
+        } # end for
+      }# end if
+    } # end else
+  }
+  
+  
+  #----------------------------------------------------------------------------------------------------
+  # we compute covariate at the points on each edge just taking into account only signs in the same edge
+  for (k in 1:nrow(sign_data)) {
+    # getting the sign at iteration i
+    sign = sign_data[k,]
+    # getting the edge that contains the sign
+    edge_number = sign[[1]]
+    # storing the edge_number into edges vector
+    edges[k] = edge_number
+    # getting the distance on the edge of the sign
+    distance_on_edge = sign[[2]]
+    
+    # indices of the data that has edge numbers equal to edge_number (in practice, getting the identity of the point the edge with number edge_number)
+    idx = which(data_on_graph_red$edge_number == edge_number)
+    list_for_indices[[edge_number]] = cbind(idx, list_for_indices[[edge_number]]) # to repeat the columns
+    # getting the distance of the points in the edge of interest
+    aux = data_on_graph_red$distance_on_edge[idx]
+    # computing the value of the covariate (with normalized and no normalized distance)
+    eval = matrix(fun(as.numeric(edge_length[edge_number])*(aux - distance_on_edge)), ncol = 1)
+    list_for_max_values[[edge_number]] = apply(cbind(eval, list_for_max_values[[edge_number]]) , 1, max)
+  }
+  
+  list_for_indices[[(sf_graph$nE + 1)]] = NULL
+  list_for_max_values[[(sf_graph$nE + 1)]] = NULL
+  
+  # drop NULL members
+  filtered_max_values = list_for_max_values[!sapply(list_for_max_values, is.null)]
+  filtered_indices = list_for_indices[!sapply(list_for_indices, is.null)]
+  
+  new_filtered_max_values = filtered_max_values[sapply(filtered_max_values, function(x) length(x) > 0)]
+  new_filtered_indices = filtered_indices[sapply(filtered_indices, function(x) length(x) > 0)]
+  
+  
+  # Creating number of signs covariate ----------------------------------------------------------
+  
+  cov_number_sign = rep(0, nrow(data_on_graph_red))
+  
+  for (i in 1:length(new_filtered_indices)) {
+    if(length(dim(new_filtered_indices[[i]])) == 2){ # that is, if it is a matrix
+      cov_number_sign[new_filtered_indices[[i]][,1]] = ncol(new_filtered_indices[[i]])
+      new_filtered_indices[[i]] = as.vector(new_filtered_indices[[i]][,1]) # just getting one column
+    }
+  }
+  
+  # -------------------------------------------------------------------------------------------------
+  
+  covariate_alltogether = data.frame(all_indices = unlist(new_filtered_indices),
+                                     all_max_values = unlist(new_filtered_max_values))
+  
+  
+  
+  final_cov = rep(0, nrow(data_on_graph_red))
+  final_cov[covariate_alltogether$all_indices] = covariate_alltogether$all_max_values
+  
+  final3 = data_on_graph_red %>% mutate(final_cov = final_cov, cov_number_sign = cov_number_sign)
+  
+  
+  
+  # ------------------------------------------------------------------------------------------------------------------
+  # For crossing
+  # ------------------------------------------------------------------------------------------------------------------
+  
+  
+  # getting the sign_data (this could be bus_stop, traffic_signals, stop or crossing)
+  
+  sign_data = traffic_stops %>% 
+    filter(highway == "crossing") %>% 
+    as.data.frame() %>% 
+    dplyr::select(.edge_number, .distance_on_edge) %>%
+    rename(edge_number = .edge_number, distance_on_edge = .distance_on_edge)
+  
+  # initializing a vector to store the edges numbers from sign_data (they are not necessarily unique)
+  edges = c()
+  
+  borderline = 0.05
+  # looping over the signs
+  
+  
+  list_for_indices = list()
+  list_for_indices[[(sf_graph$nE + 1)]] = "tmp1"
+  list_for_max_values = list()
+  list_for_max_values[[(sf_graph$nE + 1)]] = "tmp2"
+  
+  # ----------------------------------------------------------------------------------------------
+  
+  for (k in 1:nrow(sign_data)) {
+    # getting the sign at iteration i
+    sign = sign_data[k,]
+    # getting the edge that contains the sign
+    edge_number = sign[[1]]
+    # storing the edge_number into edges vector
+    edges[k] = edge_number
+    # getting the distance on the edge of the sign
+    distance_on_edge = sign[[2]]
+    
+    original_distance = as.numeric(edge_length[edge_number])
+    center_sign = original_distance*distance_on_edge
+    vertices = vertex_matrix[edge_number,]
+    
+    if(center_sign <= borderline){
+      # going
+      going_edges = which(vertex_matrix[,1] %in% vertices[1])
+      if(length(going_edges) > 0){
+        for (i in 1:length(going_edges)) {
+          center_going = -center_sign
+          idx = which(data_on_graph_red$edge_number == going_edges[i])
+          list_for_indices[[going_edges[i]]] = idx
+          aux = data_on_graph_red$distance_on_edge[idx]*as.numeric(edge_length[going_edges[i]])
+          eval = matrix(fun(aux - center_going), ncol = 1)
+          list_for_max_values[[going_edges[i]]] = apply(cbind(eval, list_for_max_values[[going_edges[i]]]) , 1, max)
+        }
+      }
+      
+      # coming
+      coming_edges = which(vertex_matrix[,2] %in% vertices[1])
+      if(length(coming_edges) > 0){
+        for (i in 1:length(coming_edges)) {
+          center_coming = as.numeric(edge_length[coming_edges[i]]) + center_sign
+          idx = which(data_on_graph_red$edge_number == coming_edges[i])
+          list_for_indices[[coming_edges[i]]] = idx
+          aux = data_on_graph_red$distance_on_edge[idx]*as.numeric(edge_length[coming_edges[i]])
+          eval = matrix(fun(aux - center_coming), ncol = 1)
+          list_for_max_values[[coming_edges[i]]] = apply(cbind(eval, list_for_max_values[[coming_edges[i]]]) , 1, max)
+        }
+      }
+      
+    }
+    if(center_sign >= (original_distance- borderline)){
+      # going
+      going_edges = which(vertex_matrix[,1] %in% vertices[2])
+      if(length(going_edges) > 0){
+        for (i in 1:length(going_edges)) {
+          center_going = -(original_distance - center_sign)
+          idx = which(data_on_graph_red$edge_number == going_edges[i])
+          list_for_indices[[going_edges[i]]] = idx
+          aux = data_on_graph_red$distance_on_edge[idx]*as.numeric(edge_length[going_edges[i]])
+          eval = matrix(fun(aux - center_going), ncol = 1)
+          list_for_max_values[[going_edges[i]]] = apply(cbind(eval, list_for_max_values[[going_edges[i]]]) , 1, max)
+        }
+      }
+      # coming
+      coming_edges = which(vertex_matrix[,2] %in% vertices[2])
+      if(length(coming_edges) > 0){
+        for (i in 1:length(coming_edges)) {
+          center_coming = as.numeric(edge_length[coming_edges[i]]) + (original_distance - center_sign)
+          idx = which(data_on_graph_red$edge_number == coming_edges[i])
+          list_for_indices[[coming_edges[i]]] = idx
+          aux = data_on_graph_red$distance_on_edge[idx]*as.numeric(edge_length[coming_edges[i]])
+          eval = matrix(fun(aux - center_coming), ncol = 1)
+          list_for_max_values[[coming_edges[i]]] = apply(cbind(eval, list_for_max_values[[coming_edges[i]]]) , 1, max)
+        } # end for
+      }# end if
+    } # end else
+  }
+  
+  
+  #----------------------------------------------------------------------------------------------------
+  # we compute covariate at the points on each edge just taking into account only signs in the same edge
+  for (k in 1:nrow(sign_data)) {
+    # getting the sign at iteration i
+    sign = sign_data[k,]
+    # getting the edge that contains the sign
+    edge_number = sign[[1]]
+    # storing the edge_number into edges vector
+    edges[k] = edge_number
+    # getting the distance on the edge of the sign
+    distance_on_edge = sign[[2]]
+    
+    # indices of the data that has edge numbers equal to edge_number (in practice, getting the identity of the point the edge with number edge_number)
+    idx = which(data_on_graph_red$edge_number == edge_number)
+    list_for_indices[[edge_number]] = cbind(idx, list_for_indices[[edge_number]]) # to repeat the columns
+    # getting the distance of the points in the edge of interest
+    aux = data_on_graph_red$distance_on_edge[idx]
+    # computing the value of the covariate (with normalized and no normalized distance)
+    eval = matrix(fun(as.numeric(edge_length[edge_number])*(aux - distance_on_edge)), ncol = 1)
+    list_for_max_values[[edge_number]] = apply(cbind(eval, list_for_max_values[[edge_number]]) , 1, max)
+  }
+  
+  list_for_indices[[(sf_graph$nE + 1)]] = NULL
+  list_for_max_values[[(sf_graph$nE + 1)]] = NULL
+  
+  # drop NULL members
+  filtered_max_values = list_for_max_values[!sapply(list_for_max_values, is.null)]
+  filtered_indices = list_for_indices[!sapply(list_for_indices, is.null)]
+  
+  new_filtered_max_values = filtered_max_values[sapply(filtered_max_values, function(x) length(x) > 0)]
+  new_filtered_indices = filtered_indices[sapply(filtered_indices, function(x) length(x) > 0)]
+  
+  
+  # Creating number of signs covariate ----------------------------------------------------------
+  
+  cov_number_sign = rep(0, nrow(data_on_graph_red))
+  
+  for (i in 1:length(new_filtered_indices)) {
+    if(length(dim(new_filtered_indices[[i]])) == 2){ # that is, if it is a matrix
+      cov_number_sign[new_filtered_indices[[i]][,1]] = ncol(new_filtered_indices[[i]])
+      new_filtered_indices[[i]] = as.vector(new_filtered_indices[[i]][,1]) # just getting one column
+    }
+  }
+  
+  # -------------------------------------------------------------------------------------------------
+  
+  covariate_alltogether = data.frame(all_indices = unlist(new_filtered_indices),
+                                     all_max_values = unlist(new_filtered_max_values))
+  
+  
+  
+  final_cov = rep(0, nrow(data_on_graph_red))
+  final_cov[covariate_alltogether$all_indices] = covariate_alltogether$all_max_values
+  
+  final4 = data_on_graph_red %>% mutate(final_cov = final_cov, cov_number_sign = cov_number_sign)
+  
+  cov_obs <- data_on_graph[[".distance_on_edge"]]
+  cov_obs <- 2 * ifelse(cov_obs > 0.5,  1 - cov_obs, cov_obs)
+  
+  data_on_mesh_with_covariates = data_on_graph %>% mutate(bus = final1$final_cov,
+                                                          bus_number = final1$cov_number_sign,
+                                                          signal = final2$final_cov,
+                                                          signal_number = final2$cov_number_sign,
+                                                          stop = final3$final_cov,
+                                                          stop_number = final3$cov_number_sign,
+                                                          crossing = final4$final_cov,
+                                                          crossing_number = final4$cov_number_sign,
+                                                          cov_obs = cov_obs)
+  
+  
+  save(data_on_mesh_with_covariates, file = "Data_files/data_on_mesh_with_covariates_partialtomtom.RData")
+  
+  
+}
+```
+
+```{r}
+h = 0.05
+source(here("Preprocessing/28Window.case.file4.addcovariatesonmesh.R"))
+creates_covariates_on_mesh(h)
+Sys.sleep(5)
+
+################################################################################
+################################# PREPARE THE DATA #############################
+################################################################################
+
+# loading the data
+load(here("Data_files/data_on_graph_with_covariates_no_consecutive_zeros_partialtomtom.RData"))
+load(here("Graph_objects/graph_construction_28_03_2024partialtomtomwhichlonglatsf.RData"))
+load(here("Data_files/data_on_mesh_with_covariates_partialtomtom.RData"))
+
+
+data = data_on_graph_with_covariates %>% 
+  mutate(across(starts_with(c("class_", "upto")), list(ind = convert_to_binary))) %>%
+  mutate(across(c("bus", "signal", "stop", "crossing"), ~round(., 5))) %>%
+  mutate(across(c("SpeedLimit", "density_per_hour"), standardize)) 
+
+
+mesh = data_on_mesh_with_covariates %>% 
+  mutate(across(starts_with(c("class_", "upto")), list(ind = convert_to_binary))) %>% # this creates new columns
+  mutate(across(c("bus", "signal", "stop", "crossing"), ~round(., 5))) %>%
+  mutate(across(c("SpeedLimit", "density_per_hour"), standardize))
+```
+
+
+### Add data and build mesh
+
+Let us add the speed observations to the graph and build the mesh. Observe that `mesh` already has the value of the available covariates on the mesh nodes.
+
+```{r}
+sf_graph$add_observations(data = data, group = "day", clear_obs = TRUE)
+sf_graph$build_mesh(h = h)
+Sys.sleep(5)
+```
+
+
+
+# Modeling
+
+### Stationary model
+
+- Observe that we are considering replicates.
+
+```{r}
+stat.time.ini <- Sys.time()
+################################################################################
+################################# STATIONARY MODEL #############################
+################################################################################
+
+rspde_model_stat <- rspde.metric_graph(sf_graph,
+                                         parameterization = "matern",
+                                         nu = 0.5)
+
+data_rspde_bru_stat <- graph_data_rspde(rspde_model_stat,
+                                        repl = ".all",
+                                        loc_name = "loc")
+
+cmp_stat = speed ~ -1 +
+  Intercept(1) +
+  SpeedLimit +
+  #density_per_hour +
+  #bus +
+  #signal +
+  #stop +
+  #crossing +
+  #upto1_ind +
+  #bus_number +
+  field(loc, model = rspde_model_stat,
+        replicate = data_rspde_bru_stat[["repl"]])
+
+rspde_fit_stat <-
+  bru(cmp_stat,
+      data = data_rspde_bru_stat[["data"]],
+      family = "gaussian",
+      options = list(verbose = FALSE)
+  )
+stat.time.fin <- Sys.time()
+print(stat.time.fin - stat.time.ini)
+
+fit.rspde = rspde.result(rspde_fit_stat, "field", rspde_model_stat)
+
+# summaries
+# summary(rspde_fit_stat)
+
+rspde_fit_stat$summary.fixed
+
+rbind(rspde_fit_stat$summary.hyperpar,
+      rspde_fit_stat$summary.hyperpar[1,]^(-0.5),
+      summary(fit.rspde))
+
+c(unlist(rspde_fit_stat$dic[c("dic", "dic.sat", "p.eff")]),
+  unlist(rspde_fit_stat$waic[c("waic", "p.eff")])) |> t() |> as.data.frame()
+
+rspde_fit_stat$mlik[2,1]
+```
+
+
+### Nonstationary model
+
+- Observe that we are using the computed parameters from the stationary model as initial values for the nonstationary models.
+
+```{r}
+nonstat.time.ini <- Sys.time()
+################################################################################
+############################# NON STATIONARY MODEL #############################
+################################################################################
+
+B.sigma = cbind(0, 1, 0, mesh$SpeedLimit, 0)
+B.range = cbind(0, 0, 1, 0, mesh$SpeedLimit)
+
+rspde_model_nonstat <- rspde.metric_graph(sf_graph,
+                                            start.theta = c(fit.rspde$summary.log.std.dev$mode,
+                                                            fit.rspde$summary.log.range$mode,
+                                                            rep(0, 2)),
+                                            B.sigma = B.sigma,
+                                            B.range = B.range,
+                                            parameterization = "matern",
+                                            nu = 0.5)
+
+data_rspde_bru_nonstat <- graph_data_rspde(rspde_model_nonstat,
+                                        repl = ".all",
+                                        loc_name = "loc")
+
+cmp_nonstat = speed ~ -1 +
+  Intercept(1) +
+  SpeedLimit +
+  #density_per_hour +
+  #bus +
+  #signal +
+  #stop +
+  #crossing +
+  #upto1_ind +
+  #bus_number +
+  field(loc, model = rspde_model_nonstat,
+        replicate = data_rspde_bru_nonstat[["repl"]])
+
+rspde_fit_nonstat <-
+  bru(cmp_nonstat,
+      data = data_rspde_bru_nonstat[["data"]],
+      family = "gaussian",
+      options = list(verbose = FALSE)
+  )
+
+nonstat.time.fin <- Sys.time()
+print(nonstat.time.fin - nonstat.time.ini)
+
+
+# summaries
+# summary(rspde_fit_nonstat)
+
+rspde_fit_nonstat$summary.fixed
+
+rbind(rspde_fit_nonstat$summary.hyperpar,
+      rspde_fit_nonstat$summary.hyperpar[1,]^(-0.5),
+      summary(rspde.result(rspde_fit_nonstat, "field", rspde_model_nonstat)))
+
+c(unlist(rspde_fit_nonstat$dic[c("dic", "dic.sat", "p.eff")]),
+  unlist(rspde_fit_nonstat$waic[c("waic", "p.eff")])) |> t() |> as.data.frame()
+
+rspde_fit_nonstat$mlik[2,1]
+
+```
+
+# Cross-validation
+
+
+```{r}
+################################################################################
+################################ CROSSVALIDATION ###############################
+################################################################################
+
+points = data_on_graph_with_covariates %>%
+  as.data.frame() %>%
+  st_as_sf(coords = c(".coord_x", ".coord_y"), crs = 4326) %>%
+  mutate(., index = 1:nrow(.))
+
+polygon = st_multipoint(c(st_point(c(-122.42591, 37.80732)),
+                          st_point(c(-122.40648, 37.81002)),
+                          st_point(c(-122.38820, 37.78959)),
+                          st_point(c(-122.38770, 37.78849)),
+                          st_point(c(-122.38483, 37.76713)),
+                          st_point(c(-122.39342, 37.76665)),
+                          st_point(c(-122.39372, 37.76655)),
+                          st_point(c(-122.41970, 37.76500)),
+                          st_point(c(-122.42039, 37.77159)),
+                          st_point(c(-122.42050, 37.77174)),
+                          st_point(c(-122.42040, 37.77194)),
+                          st_point(c(-122.41905, 37.77306)))) %>%
+  st_cast("POLYGON") %>%
+  st_sfc(crs = st_crs(points))
+
+grid100 = st_make_grid(polygon, n = c(300, 300)) %>%
+  as.data.frame() %>%
+  st_as_sf(crs = st_crs(points)) %>%
+  st_centroid() %>%
+  mutate(dummy = 1)
+
+grid10 = st_make_grid(polygon, n = c(50, 50)) %>%
+  as.data.frame() %>%
+  st_as_sf(crs = st_crs(points)) %>%
+  st_centroid() %>%
+  mutate(dummy = 1)
+
+get.index = points %>%
+  st_join(x = grid100, y = ., join = st_nearest_feature) %>%
+  dplyr::select(index) %>%
+  st_join(x = grid10, y = ., join = st_nearest_feature) %>%
+  dplyr::select(index) %>%
+  st_filter(polygon)
+```
+
+## Some points
+
+```{r, fig.height = 8}
+start_time.some <- Sys.time()
+chosen.points = points[get.index$index, ] %>% dplyr::select(speed)
+
+data.frame(total.points = nrow(points), chosen.points = nrow(chosen.points))
+
+distance = seq(from = 0, to = 250, by = 50)
+mse.stat <- mse.nonstat <- ls.stat <- ls.nonstat <- rep(0,length(distance))
+# cross-validation for-loop
+for(j in 1:length(distance)){
+  print(j)
+  groups <- list()
+  for(i in 1:nrow(chosen.points)) {
+    # get index of the points that should be removed
+    groups[[i]] <- (chosen.points[i,2] %>%
+                      st_buffer(dist = distance[j], nQuadSegs = 30) %>%
+                      st_filter(x = points, y = .) %>%
+                      as.data.frame())$index # as.data.frame is important so that we do not include the geometry column
+  }
+  # cross-validation of the stationary model
+  cv.stat <- inla.group.cv(rspde_fit_stat, groups = groups)
+  # cross-validation of the nonstationary model
+  cv.nonstat <- inla.group.cv(rspde_fit_nonstat, groups = groups)
+  # obtain MSE and LS
+  mse.stat[j] <- mean((cv.stat$mean[1:nrow(chosen.points)] - chosen.points$speed)^2)
+  mse.nonstat[j] <- mean((cv.nonstat$mean[1:nrow(chosen.points)] - chosen.points$speed)^2)
+  ls.stat[j] <- mean(log(cv.stat$cv[1:nrow(chosen.points)]))
+  ls.nonstat[j] <- mean(log(cv.nonstat$cv[1:nrow(chosen.points)]))
+}
+
+## plot results
+par(mfrow = c(2,2), family = "Palatino")
+
+# Plot MSE
+plot(distance, mse.stat, main = "MSE", ylim = c(min(mse.nonstat, mse.stat), max(mse.nonstat, mse.stat)),
+     type = "l", ylab = "MSE", xlab = "distance in m", col = "black")
+lines(distance, mse.nonstat, col = "blue")
+legend("bottomright", legend = c("Stationary", "Non-stationary"), col = c("black", "blue"), lty = 1)
+
+# Plot log-score
+plot(distance, -ls.stat, main = "log-score", ylim = c(min(-ls.nonstat, -ls.stat), max(-ls.nonstat, -ls.stat)),
+     type = "l", ylab = "log-score", xlab = "distance in m", col = "black")
+lines(distance, -ls.nonstat, col = "blue")
+legend("bottomright", legend = c("Stationary", "Non-stationary"), col = c("black", "blue"), lty = 1)
+end_time.some <- Sys.time()
+execution_time.some <- end_time.some - start_time.some
+print(execution_time.some)
+```
+
+
+
+## All points 
+
+
+```{r, fig.height = 8}
+start_time.all <- Sys.time()
+chosen.points = points %>% dplyr::select(speed)
+
+distance = seq(from = 0, to = 250, by = 50)
+mse.stat <- mse.nonstat <- ls.stat <- ls.nonstat <- rep(0,length(distance))
+# cross-validation for-loop
+for(j in 1:length(distance)){
+  print(j)
+  groups <- list()
+  for(i in 1:nrow(chosen.points)) {
+    # get index of the points that should be removed
+    groups[[i]] <- (chosen.points[i,2] %>%
+                      st_buffer(dist = distance[j], nQuadSegs = 30) %>%
+                      st_filter(x = points, y = .) %>%
+                      as.data.frame())$index # as.data.frame is important so that we do not include the geometry column
+  }
+  # cross-validation of the stationary model
+  cv.stat <- inla.group.cv(rspde_fit_stat, groups = groups)
+  # cross-validation of the nonstationary model
+  cv.nonstat <- inla.group.cv(rspde_fit_nonstat, groups = groups)
+  # obtain MSE and LS
+  mse.stat[j] <- mean((cv.stat$mean[1:nrow(chosen.points)] - chosen.points$speed)^2)
+  mse.nonstat[j] <- mean((cv.nonstat$mean[1:nrow(chosen.points)] - chosen.points$speed)^2)
+  ls.stat[j] <- mean(log(cv.stat$cv[1:nrow(chosen.points)]))
+  ls.nonstat[j] <- mean(log(cv.nonstat$cv[1:nrow(chosen.points)]))
+}
+
+
+## plot results
+par(mfrow = c(2,2), family = "Palatino")
+
+# Plot MSE
+plot(distance, mse.stat, main = "MSE", ylim = c(min(mse.nonstat, mse.stat), max(mse.nonstat, mse.stat)),
+     type = "l", ylab = "MSE", xlab = "distance in m", col = "black")
+lines(distance, mse.nonstat, col = "blue")
+legend("bottomright", legend = c("Stationary", "Non-stationary"), col = c("black", "blue"), lty = 1)
+
+# Plot log-score
+plot(distance, -ls.stat, main = "log-score", ylim = c(min(-ls.nonstat, -ls.stat), max(-ls.nonstat, -ls.stat)),
+     type = "l", ylab = "log-score", xlab = "distance in m", col = "black")
+lines(distance, -ls.nonstat, col = "blue")
+legend("bottomright", legend = c("Stationary", "Non-stationary"), col = c("black", "blue"), lty = 1)
+
+end_time.all <- Sys.time()
+execution_time.all <- end_time.all - start_time.all
+print(execution_time.all)
+```
+
+
+
+```{r}
+save.image(here(paste0("Models_output/", rmarkdown::metadata$title, ".RData")))
+```
+
