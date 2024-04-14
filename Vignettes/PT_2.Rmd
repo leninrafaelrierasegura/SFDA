@@ -1,5 +1,5 @@
 ---
-title: "Model1"
+title: "Model2"
 author: "Several authors"
 date: "Created: 12-04-2024. Last modified: `r format(Sys.time(), '%d-%m-%Y.')`"
 output:
@@ -1029,7 +1029,7 @@ grid100 = st_make_grid(polygon, n = c(300, 300)) %>%
   st_centroid() %>%
   mutate(dummy = 1)
 
-grid10 = st_make_grid(polygon, n = c(70, 70)) %>%
+grid10 = st_make_grid(polygon, n = c(50, 50)) %>%
   as.data.frame() %>%
   st_as_sf(crs = st_crs(points)) %>%
   st_centroid() %>%
@@ -1132,7 +1132,6 @@ legend("bottomright", legend = c("Stationary", "Non-stationary"), col = c("black
 
 end_time <- Sys.time()
 execution_time <- end_time - start_time
-print(execution_time)
 ```
 
 
