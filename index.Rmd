@@ -1,9 +1,49 @@
 ---
-title: "My Website"
+title: "About priors in INLA"
 ---
 
-Hello, Website!
+```{css, eval = TRUE, echo = FALSE}
+body, td {
+   font-size: 16px;
+}
+code.r{
+  font-size: 14px;
+}
+pre {
+  font-size: 14px
+}
+```
 
-For more information about simple R Markdown websites, please read the documentation at https://bookdown.org/yihui/rmarkdown/rmarkdown-site.html.
+Consider the following general code for fitting a model using `inla()` function.
 
-Please also note that simple R Markdown sites are _not_ based on **blogdown**. They are probably good for websites with only a few Rmd documents. For larger-scale and more sophisticated websites (such as blogs), you may want to use **blogdown** instead: https://github.com/rstudio/blogdown.
+```{r eval = FALSE}
+inla(formula = y ~ <covariates> + f("<latent effect>", hyper = hyper),
+     family = "<likelihood>", 
+     data = <data.frame>,
+     control.family = list(hyper = hyper))
+```
+
+We assume that `"<likelihood>"` or `"<latent effect>"` have only one hyperparameter called `prec` with default prior `hyper = list(prec = list(prior = "loggamma", param = c(1, 0.00005)), initial = 4, fixed = FALSE)`.
+
+
+1. If we do
+
+```{r eval = FALSE}
+inla(formula = y ~ <covariates> + f("<latent effect>"),
+     family = "<likelihood>", 
+     data = <data.frame>)
+```
+ 
+then the default prior is assigned to the hyperparameter and estimation is performed.
+ 
+2. If we set the `hyper` parameter to
+
+    - `hyper = list(prec = list(initial = 0, fixed = TRUE))`, then the hyperparameter `prec` is fixed to its initial value `initial`, estimation is not performed, and the prior distribution is ignored. **Neither the default prior nor its parameters `param` are modified**.
+
+    - `hyper = list(prec = list(initial = 0, fixed = FALSE))`, then the hyperparameter `prec` is initialized to `initial` and estimation is performed. **Neither the default prior nor its parameters `param` are modified**.
+
+    - `hyper = list(prec = list(prior = "pc.prec", param = c(5, 0.01)))`, then the prior is totally changed.
+
+3. Run `inla.doc("<llkelihood>")` or `inla.doc("<latent effect>")` to get more information.
+
+

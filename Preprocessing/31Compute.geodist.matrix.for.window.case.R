@@ -8,7 +8,7 @@ load(here("Graph_objects/graph_construction_28_03_2024partialtomtomwhichlonglats
 aux = data_on_graph_with_covariates |>
   rename(distance_on_edge = .distance_on_edge, edge_number = .edge_number) |>
   as.data.frame() |>
-  select(edge_number, distance_on_edge)
+  dplyr::select(edge_number, distance_on_edge)
 
 distmatrix = graph$compute_geodist_PtE(PtE = aux, 
                                        normalized = TRUE, 
