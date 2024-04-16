@@ -31,6 +31,8 @@ navbar:
           href: Vignettes/PT_4.html
         - text: "Model 5"
           href: Vignettes/PT_5.html
+    - text: "Tips"
+      href: Vignettes/Nuances/N1.html
   right:
     - icon: fa-github
       href: https://github.com/leninrafaelrierasegura/

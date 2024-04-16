@@ -9,10 +9,18 @@ aux = data_on_graph_with_covariates |>
   rename(distance_on_edge = .distance_on_edge, edge_number = .edge_number) |>
   as.data.frame() |>
   dplyr::select(edge_number, distance_on_edge)
+# 
+# distmatrix = sf_graph$compute_geodist_PtE(PtE = aux, 
+#                                        normalized = TRUE, 
+#                                        include_vertices = FALSE)
+# 
+# 
+# save(distmatrix, file = here("Models_output/distmatrix.RData"))
 
-distmatrix = graph$compute_geodist_PtE(PtE = aux, 
-                                       normalized = TRUE, 
-                                       include_vertices = FALSE)
-
-
-save(distmatrix, file = here("Models_output/distmatrix.RData"))
+# Warning message:
+#   In system.time({ :
+#       Duplicated locations were found when computing geodist. The returned values are given for unique locations.
+#     
+    
+load(here("Models_output/distmatrix.RData"))   
+nrow(unique(aux))

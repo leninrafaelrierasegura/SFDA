@@ -79,7 +79,6 @@ knitr::opts_chunk$set(
   retina = 2,
   error = TRUE
 )
-#klippy::klippy()
 rm(list = ls())
 set.seed(1982)
 ```
@@ -90,6 +89,12 @@ Let us now load some required libraries.
 
 ```{r}
 # Load required libraries
+
+# inla.upgrade(testing = TRUE)
+# remotes::install_github("inlabru-org/inlabru", ref = "devel")
+# remotes::install_github("davidbolin/rspde", ref = "devel")
+# remotes::install_github("davidbolin/metricgraph", ref = "devel")
+
 library(INLA)
 library(inlabru)
 library(rSPDE)
@@ -127,9 +132,9 @@ Go to [**Preprocessing 8.0.1 Raw code**](dp.html#801_Raw_code) to see the body o
 
 ```{r}
 h = 0.05
-source(here("Preprocessing/28Window.case.file4.addcovariatesonmesh.R"))
-creates_covariates_on_mesh(h)
-Sys.sleep(5)
+# source(here("Preprocessing/28Window.case.file4.addcovariatesonmesh.R"))
+# creates_covariates_on_mesh(h)
+# Sys.sleep(5)
 
 ################################################################################
 ################################# PREPARE THE DATA #############################
@@ -144,15 +149,14 @@ load(here("Data_files/data_on_mesh_with_covariates_partialtomtom.RData"))
 data = data_on_graph_with_covariates %>%
   mutate(across(starts_with(c("class_", "upto")), list(ind = convert_to_binary))) %>%
   mutate(across(c("bus", "signal", "stop", "crossing"), ~round(., 5))) %>%
-  mutate(across(c("SpeedLimit", "density_per_hour"), standardize))
+  mutate(across(c("SpeedLimit", "density_per_hour"), ~standardize(.)))
 
 
 mesh = data_on_mesh_with_covariates %>%
   mutate(across(starts_with(c("class_", "upto")), list(ind = convert_to_binary))) %>% # this creates new columns
   mutate(across(c("bus", "signal", "stop", "crossing"), ~round(., 5))) %>%
-  mutate(across(c("SpeedLimit", "density_per_hour"), standardize))
+  mutate(across(c("SpeedLimit", "density_per_hour"), ~standardize(.)))
 ```
-
 
 ### Add data and build mesh
 
@@ -189,13 +193,6 @@ data_rspde_bru_stat <- graph_data_rspde(rspde_model_stat,
 cmp_stat = speed ~ -1 +
   Intercept(1) +
   SpeedLimit +
-  #density_per_hour +
-  #bus +
-  #signal +
-  #stop +
-  #crossing +
-  #upto1_ind +
-  #bus_number +
   field(loc, model = rspde_model_stat,
         replicate = data_rspde_bru_stat[["repl"]])
 
@@ -255,13 +252,6 @@ data_rspde_bru_nonstat <- graph_data_rspde(rspde_model_nonstat,
 cmp_nonstat = speed ~ -1 +
   Intercept(1) +
   SpeedLimit +
-  #density_per_hour +
-  #bus +
-  #signal +
-  #stop +
-  #crossing +
-  #upto1_ind +
-  #bus_number +
   field(loc, model = rspde_model_nonstat,
         replicate = data_rspde_bru_nonstat[["repl"]])
 

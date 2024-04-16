@@ -299,6 +299,9 @@ $(document).ready(function () {
     </li>
   </ul>
 </li>
+<li>
+  <a href="Vignettes/Nuances/N1.html">Tips</a>
+</li>
       </ul>
       <ul class="nav navbar-nav navbar-right">
         <li>
@@ -330,32 +333,58 @@ the workflow up to today.</li>
 <strong>Models</strong> tab.</p>
 <ol style="list-style-type: decimal">
 <li><p><a href="Vignettes/PT_1.html"><strong>Models/Model
-1</strong></a>: Cross-validation with</p>
+1</strong></a>:</p>
 <ul>
+<li><p>Cross-validation</p></li>
 <li><p>3527 speed observations</p></li>
 <li><p>data as replicates</p></li>
 </ul></li>
 <li><p><a href="Vignettes/PT_2.html"><strong>Models/Model
-2</strong></a>: Cross-validation with</p>
+2</strong></a>:</p>
 <ul>
+<li><p>Cross-validation</p></li>
 <li><p>all speed observations</p></li>
 <li><p>data as replicates</p></li>
 </ul></li>
 <li><p><a href="Vignettes/PT_3.html"><strong>Models/Model
-3</strong></a>: Cross-validation with</p>
+3</strong></a>:</p>
 <ul>
+<li><p>Cross-validation</p></li>
 <li><p>all and some speed observations</p></li>
 <li><p>data as a whole</p></li>
 </ul></li>
 <li><p><a href="Vignettes/PT_4.html"><strong>Models/Model
-4</strong></a>: Cross-validation with</p>
+4</strong></a>:</p>
 <ul>
+<li><p>Cross-validation</p></li>
 <li><p>all and some speed observations</p></li>
 <li><p>data as replicates (this is the only difference with Model
 3)</p></li>
 </ul></li>
 <li><p><a href="Vignettes/PT_5.html"><strong>Models/Model
-5</strong></a>: <strong>TODO</strong></p></li>
+5</strong></a>:</p>
+<ul>
+<li><p>No cross-validation</p></li>
+<li><p>data as replicates</p></li>
+<li><p><code>sf_graph$add_observations(data = data, group = "day", clear_obs = TRUE)</code></p></li>
+</ul></li>
+<li><p><a href="Vignettes/PT_6.html"><strong>Models/Model
+6</strong></a>:</p>
+<ul>
+<li><p>No cross-validation</p></li>
+<li><p>data as replicates</p></li>
+<li><p><code>sf_graph$add_observations(data = data, group = "day", normalized = TRUE, clear_obs = TRUE)</code>
+<strong>This is the only difference with Model 5. Conclussion: Adding
+normalized = TRUE` does not make any difference. Explanation: See <a
+href="Vignettes/Nuances/N1.html"><strong>Tips/Tip
+1</strong></a>.</strong></p></li>
+</ul></li>
+<li><p><a href="Vignettes/PT_7.html"><strong>Models/Model
+7</strong></a>:</p>
+<ul>
+<li><p>INLA implementation</p></li>
+<li><p>data as replicates</p></li>
+</ul></li>
 </ol>
 
 

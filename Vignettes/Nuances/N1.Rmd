@@ -1,0 +1,164 @@
+---
+title: "Some nuances about INLA, inlabru, rSPDE, and MetricGraph packages"
+author: "Several authors"
+date: "Created: 12-04-2024. Last modified: `r format(Sys.time(), '%d-%m-%Y.')`"
+output:
+  html_document:
+    mathjax: "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
+    highlight: pygments
+    theme: flatly
+    code_folding: show
+    df_print: paged
+    toc: true
+    toc_float:
+      collapsed: true
+      smooth_scroll: true
+    number_sections: true
+    fig_caption: true
+always_allow_html: true
+---
+
+```{r, eval = FALSE, echo = FALSE}
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+######### DO NOT FORGET TO CHANGE THE TITLE EVERY TIME YOU FIT A MODEL #########
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+```
+
+```{r xaringanExtra-clipboard, echo = FALSE}
+# This is just to get the clipboard button
+htmltools::tagList(
+  xaringanExtra::use_clipboard(
+    button_text = "<i class=\"fa-solid fa-clipboard\" style=\"color: #00008B\"></i>",
+    success_text = "<i class=\"fa fa-check\" style=\"color: #90BE6D\"></i>",
+    error_text = "<i class=\"fa fa-times-circle\" style=\"color: #F94144\"></i>"
+  ),
+  rmarkdown::html_dependency_font_awesome()
+)
+```
+
+
+```{css, echo = FALSE}
+body .main-container {
+  max-width: 100% !important;
+  width: 100% !important;
+}
+body {
+  max-width: 100% !important;
+}
+
+body, td {
+   font-size: 16px;
+}
+code.r{
+  font-size: 14px;
+}
+pre {
+  font-size: 14px
+}
+```
+
+
+Let us set some global options for all code chunks in this document.
+
+
+```{r}
+knitr::opts_chunk$set(
+  message = FALSE,    # Disable messages printed by R code chunks
+  warning = FALSE,    # Disable warnings printed by R code chunks
+  echo = TRUE,        # Show R code within code chunks in output
+  include = TRUE,     # Include both R code and its results in output
+  eval = TRUE,       # Evaluate R code chunks
+  cache = FALSE,       # Enable caching of R code chunks for faster rendering
+  fig.align = "center",
+  out.width = "100%",
+  retina = 2,
+  error = TRUE
+)
+rm(list = ls(all.names = TRUE)) # clear all objects, including hidden objects.
+set.seed(1982)
+```
+
+### Required libraries
+
+```{r}
+# Install or upgrade required libraries
+
+# inla.upgrade(testing = TRUE)
+# remotes::install_github("inlabru-org/inlabru", ref = "devel")
+# remotes::install_github("davidbolin/rspde", ref = "devel")
+# remotes::install_github("davidbolin/metricgraph", ref = "devel")
+
+# Load required libraries
+
+library(INLA)
+library(inlabru)
+library(rSPDE)
+library(MetricGraph)
+
+library(plotly)
+library(dplyr)
+
+library(here)
+```
+
+
+# Tip 1
+
+```{r}
+edge1 <- rbind(c(0,0),c(1,0))
+edge2 <- rbind(c(0,0),c(0,1))
+edge3 <- rbind(c(0,1),c(-1,1))
+theta <- seq(from=pi,to=3*pi/2,length.out = 20)
+edge4 <- cbind(sin(theta),1+ cos(theta))
+edges = list(edge1, edge2, edge3, edge4)
+graph <- metric_graph$new(edges = edges)
+
+
+obs_per_edge <- 50
+obs_loc <- NULL
+for(i in 1:(graph$nE)) {
+  obs_loc <- rbind(obs_loc,
+                   cbind(rep(i,obs_per_edge), 
+                         runif(obs_per_edge)))
+}
+
+y3 <- rnorm(graph$nE * obs_per_edge)
+
+df_data3 <- data.frame(y3=y3, edge_number = obs_loc[,1], distance_on_edge = obs_loc[,2])
+```
+
+### Adding data after it has been graph-processed does not changes its value
+
+```{r}
+graph$add_observations(data = df_data3, normalized = FALSE)
+a = graph$get_data()
+
+graph$add_observations(data = a, clear_obs = TRUE, normalized = FALSE)
+b = graph$get_data()
+
+lapply(names(a), function(member) sum(a[[member]] != b[[member]])) %>% unlist()
+
+plot(a$.distance_on_edge)
+lines(b$.distance_on_edge, col = "red")
+```
+
+### Not telling that the data is normalized changes its value
+
+```{r}
+graph$add_observations(data = df_data3, clear_obs = TRUE, normalized = FALSE)
+a = graph$get_data()
+
+graph$add_observations(data = df_data3, clear_obs = TRUE, normalized = TRUE)
+b = graph$get_data()
+
+lapply(names(a), function(member) sum(a[[member]] != b[[member]])) %>% unlist()
+
+plot(a$.distance_on_edge)
+lines(b$.distance_on_edge, col = "red")
+```

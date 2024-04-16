@@ -6,28 +6,58 @@ title: "About This Website"
 
 Here is a short description of the results under **Models** tab.
 
-1. [**Models/Model 1**](Vignettes/PT_1.html): Cross-validation with 
+1. [**Models/Model 1**](Vignettes/PT_1.html): 
+
+    - Cross-validation
 
     - 3527 speed observations
     
     - data as replicates
 
-2. [**Models/Model 2**](Vignettes/PT_2.html): Cross-validation with
+2. [**Models/Model 2**](Vignettes/PT_2.html): 
+
+    - Cross-validation
 
     - all speed observations
     
     - data as replicates
 
-3. [**Models/Model 3**](Vignettes/PT_3.html): Cross-validation with
+3. [**Models/Model 3**](Vignettes/PT_3.html): 
+
+    - Cross-validation
 
     - all and some speed observations
     
     - data as a whole
 
-4. [**Models/Model 4**](Vignettes/PT_4.html): Cross-validation with
+4. [**Models/Model 4**](Vignettes/PT_4.html): 
+
+    - Cross-validation
 
     - all and some speed observations
     
     - data as replicates (this is the only difference with Model 3)
     
-5. [**Models/Model 5**](Vignettes/PT_5.html): **TODO**
+5. [**Models/Model 5**](Vignettes/PT_5.html): 
+
+    - No cross-validation
+    
+    - data as replicates
+    
+    - `sf_graph$add_observations(data = data, group = "day", clear_obs = TRUE)`
+    
+6. [**Models/Model 6**](Vignettes/PT_6.html): 
+
+    - No cross-validation
+    
+    - data as replicates
+    
+    - `sf_graph$add_observations(data = data, group = "day", normalized = TRUE, clear_obs = TRUE)` **This is the only difference with Model 5. Conclussion: Adding normalized = TRUE` does not make any difference. Explanation: See [**Tips/Tip 1**](Vignettes/Nuances/N1.html).**
+    
+    
+7. [**Models/Model 7**](Vignettes/PT_7.html): 
+
+    - INLA implementation
+    
+    - data as replicates
+    

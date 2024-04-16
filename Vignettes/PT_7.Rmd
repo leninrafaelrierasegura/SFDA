@@ -1,0 +1,275 @@
+---
+title: "Model7"
+author: "Several authors"
+date: "Created: 12-04-2024. Last modified: `r format(Sys.time(), '%d-%m-%Y.')`"
+output:
+  html_document:
+    mathjax: "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
+    highlight: pygments
+    theme: flatly
+    code_folding: show
+    df_print: paged
+    toc: true
+    toc_float:
+      collapsed: true
+      smooth_scroll: true
+    number_sections: true
+    fig_caption: true
+always_allow_html: true
+---
+
+```{r, eval = FALSE, echo = FALSE}
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+######### DO NOT FORGET TO CHANGE THE TITLE EVERY TIME YOU FIT A MODEL #########
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+```
+
+```{r xaringanExtra-clipboard, echo = FALSE}
+htmltools::tagList(
+  xaringanExtra::use_clipboard(
+    button_text = "<i class=\"fa-solid fa-clipboard\" style=\"color: #00008B\"></i>",
+    success_text = "<i class=\"fa fa-check\" style=\"color: #90BE6D\"></i>",
+    error_text = "<i class=\"fa fa-times-circle\" style=\"color: #F94144\"></i>"
+  ),
+  rmarkdown::html_dependency_font_awesome()
+)
+```
+
+
+```{css}
+body .main-container {
+  max-width: 100% !important;
+  width: 100% !important;
+}
+body {
+  max-width: 100% !important;
+}
+
+body, td {
+   font-size: 16px;
+}
+code.r{
+  font-size: 14px;
+}
+pre {
+  font-size: 14px
+}
+```
+
+
+Let us set some global options for all code chunks in this document.
+
+
+```{r}
+knitr::opts_chunk$set(
+  message = FALSE,    # Disable messages printed by R code chunks
+  warning = FALSE,    # Disable warnings printed by R code chunks
+  echo = TRUE,        # Show R code within code chunks in output
+  include = TRUE,     # Include both R code and its results in output
+  eval = TRUE,       # Evaluate R code chunks
+  cache = FALSE,       # Enable caching of R code chunks for faster rendering
+  fig.align = "center",
+  out.width = "100%",
+  retina = 2,
+  error = TRUE
+)
+rm(list = ls())
+set.seed(1982)
+```
+
+# Preprocessing
+
+Let us now load some required libraries.
+
+```{r}
+# Install or upgrade required libraries
+
+# inla.upgrade(testing = TRUE)
+# remotes::install_github("inlabru-org/inlabru", ref = "devel")
+# remotes::install_github("davidbolin/rspde", ref = "devel")
+# remotes::install_github("davidbolin/metricgraph", ref = "devel")
+
+# Load required libraries
+
+library(INLA)
+library(inlabru)
+library(rSPDE)
+library(MetricGraph)
+
+library(plotly)
+library(dplyr)
+
+library(here)
+```
+
+We now define some `R` functions with self-explanatory names.
+
+```{r}
+# Functions to manipulate the data
+standardize <- function(vector) {return((vector - mean(vector)) / sd(vector))}
+minmax_scaling <- function(x) {return((x - min(x)) / (max(x) - min(x)))}
+convert_to_binary <- function(input_vector) {return(ifelse(input_vector != 0, 1, 0))}
+```
+
+### Prepare the data
+
+The following chunk uses the function `creates_covariates_on_mesh()` defined on `Preprocessing/28Window.case.file4.addcovariatesonmesh.R` to build a mesh (on the same graph as the one used in this file) and compute the value of all available covariates on the mesh nodes.
+
+Go to [**Preprocessing 8.0.1 Raw code**](dp.html#801_Raw_code) to see the body of the `creates_covariates_on_mesh()` function.
+
+
+```{r}
+h = 0.05
+# source(here("Preprocessing/28Window.case.file4.addcovariatesonmesh.R"))
+# creates_covariates_on_mesh(h)
+# Sys.sleep(5)
+
+################################################################################
+################################# PREPARE THE DATA #############################
+################################################################################
+
+# loading the data
+load(here("Data_files/data_on_graph_with_covariates_no_consecutive_zeros_partialtomtom.RData"))
+load(here("Graph_objects/graph_construction_28_03_2024partialtomtomwhichlonglatsf.RData"))
+load(here("Data_files/data_on_mesh_with_covariates_partialtomtom.RData"))
+
+
+data = data_on_graph_with_covariates %>%
+  mutate(across(starts_with(c("class_", "upto")), list(ind = convert_to_binary))) %>%
+  mutate(across(c("bus", "signal", "stop", "crossing"), ~round(., 5))) %>%
+  mutate(across(c("SpeedLimit", "density_per_hour"), ~standardize(.))) %>% dplyr::select(-datetime)
+
+
+mesh = data_on_mesh_with_covariates %>%
+  mutate(across(starts_with(c("class_", "upto")), list(ind = convert_to_binary))) %>% # this creates new columns
+  mutate(across(c("bus", "signal", "stop", "crossing"), ~round(., 5))) %>%
+  mutate(across(c("SpeedLimit", "density_per_hour"), ~standardize(.)))
+```
+
+### Add data and build mesh
+
+Let us add the speed observations to the graph and build the mesh. Observe that `mesh` already has the value of the available covariates on the mesh nodes.
+
+```{r}
+sf_graph$add_observations(data = data, group = "day", normalized = TRUE, clear_obs = TRUE)
+sf_graph$build_mesh(h = h)
+Sys.sleep(5)
+```
+
+
+
+# Modeling
+
+### Stationary model
+
+- Observe that we are considering replicates.
+
+```{r}
+stat.time.ini <- Sys.time()
+################################################################################
+################################# STATIONARY MODEL #############################
+################################################################################
+
+rspde_model_stat <- rspde.metric_graph(sf_graph,
+                                         parameterization = "matern",
+                                         nu = 0.5)
+
+data_rspde_bru_stat <- graph_data_rspde(rspde_model_stat,
+                                        repl = ".all",
+                                        name = "field")
+
+st.dat.rep.stat <- inla.stack(
+    data = data_rspde_bru_stat[["data"]]["speed"], 
+    A = list(data_rspde_bru_stat[["basis"]],1), 
+    tag = "est",
+    effects =
+      list(c(data_rspde_bru_stat[["index"]], list(Intercept = 1)), 
+           list(SpeedLimit = data_rspde_bru_stat[["data"]]["SpeedLimit"])
+      )
+    )
+
+
+f_stat = speed ~ -1 + Intercept + SpeedLimit + f(field, model = rspde_model_stat, replicate = field.repl)
+
+rspde_fit_stat <-
+  inla(f_stat,
+      data = inla.stack.data(st.dat.rep.stat),
+      family = "gaussian",
+      control.predictor = list(A = inla.stack.A(st.dat.rep.stat))
+  )
+
+stat.time.fin <- Sys.time()
+print(stat.time.fin - stat.time.ini)
+
+summary(rspde_fit_stat)
+fit.rspde = rspde.result(rspde_fit_stat, "field", rspde_model_stat)
+summary(fit.rspde)
+```
+
+
+### Nonstationary model
+
+- Observe that we are using the computed parameters from the stationary model as initial values for the nonstationary models.
+
+```{r}
+nonstat.time.ini <- Sys.time()
+################################################################################
+############################# NON STATIONARY MODEL #############################
+################################################################################
+
+B.sigma = cbind(0, 1, 0, mesh$SpeedLimit, 0)
+B.range = cbind(0, 0, 1, 0, mesh$SpeedLimit)
+
+rspde_model_nonstat <- rspde.metric_graph(sf_graph,
+                                            start.theta = c(fit.rspde$summary.log.std.dev$mode,
+                                                            fit.rspde$summary.log.range$mode,
+                                                            rep(0, 2)),
+                                            B.sigma = B.sigma,
+                                            B.range = B.range,
+                                            parameterization = "matern",
+                                            nu = 0.5)
+
+data_rspde_bru_nonstat <- graph_data_rspde(rspde_model_nonstat,
+                                        repl = ".all",
+                                        name = "field")
+
+st.dat.rep.nonstat <- inla.stack(
+    data = data_rspde_bru_nonstat[["data"]]["speed"], 
+    A = list(data_rspde_bru_nonstat[["basis"]],1), 
+    tag = "est",
+    effects =
+      list(c(data_rspde_bru_nonstat[["index"]], list(Intercept = 1)), 
+           list(SpeedLimit = data_rspde_bru_nonstat[["data"]]["SpeedLimit"])
+      )
+    )
+
+
+f_nonstat = speed ~ -1 + Intercept + SpeedLimit + f(field, model = rspde_model_nonstat, replicate = field.repl)
+
+rspde_fit_nonstat <-
+  inla(f_nonstat,
+      data = inla.stack.data(st.dat.rep.nonstat),
+      family = "gaussian",
+      control.predictor = list(A = inla.stack.A(st.dat.rep.nonstat))
+  )
+
+nonstat.time.fin <- Sys.time()
+print(nonstat.time.fin - nonstat.time.ini)
+
+summary(rspde_fit_nonstat)
+summary(rspde.result(rspde_fit_nonstat, "field", rspde_model_nonstat))
+
+```
+
+
+
+```{r}
+save.image(here(paste0("Models_output/", rmarkdown::metadata$title, ".RData")))
+```
+
