@@ -79,7 +79,6 @@ knitr::opts_chunk$set(
   retina = 2,
   error = TRUE
 )
-
 rm(list = ls())
 set.seed(1982)
 ```
@@ -95,6 +94,7 @@ Let us now load some required libraries.
 # remotes::install_github("inlabru-org/inlabru", ref = "devel")
 # remotes::install_github("davidbolin/rspde", ref = "devel")
 # remotes::install_github("davidbolin/metricgraph", ref = "devel")
+
 library(INLA)
 library(inlabru)
 library(rSPDE)
@@ -149,15 +149,14 @@ load(here("Data_files/data_on_mesh_with_covariates_partialtomtom.RData"))
 data = data_on_graph_with_covariates %>%
   mutate(across(starts_with(c("class_", "upto")), list(ind = convert_to_binary))) %>%
   mutate(across(c("bus", "signal", "stop", "crossing"), ~round(., 5))) %>%
-  mutate(across(c("SpeedLimit", "density_per_hour"), standardize)) %>% dplyr::select(-datetime)
+  mutate(across(c("SpeedLimit", "density_per_hour"), ~standardize(.)))
 
 
 mesh = data_on_mesh_with_covariates %>%
   mutate(across(starts_with(c("class_", "upto")), list(ind = convert_to_binary))) %>% # this creates new columns
   mutate(across(c("bus", "signal", "stop", "crossing"), ~round(., 5))) %>%
-  mutate(across(c("SpeedLimit", "density_per_hour"), standardize))
+  mutate(across(c("SpeedLimit", "density_per_hour"), ~standardize(.)))
 ```
-
 
 ### Add data and build mesh
 
@@ -189,34 +188,38 @@ rspde_model_stat <- rspde.metric_graph(sf_graph,
 
 data_rspde_bru_stat <- graph_data_rspde(rspde_model_stat,
                                         repl = ".all",
-                                        name = "field")
+                                        loc_name = "loc")
 
-st.dat.rep.stat <- inla.stack(
-    data = data_rspde_bru_stat[["data"]]["speed"], 
-    A = list(data_rspde_bru_stat[["basis"]],1), 
-    tag = "est",
-    effects =
-      list(c(data_rspde_bru_stat[["index"]], list(Intercept = 1)), 
-           list(SpeedLimit = data_rspde_bru_stat[["data"]]["SpeedLimit"])
-      )
-    )
-
-
-f_stat = speed ~ -1 + Intercept + SpeedLimit + f(field, model = rspde_model_stat, replicate = field.repl)
+cmp_stat = speed ~ -1 +
+  Intercept(1) +
+  SpeedLimit +
+  field(loc, model = rspde_model_stat,
+        replicate = data_rspde_bru_stat[["repl"]])
 
 rspde_fit_stat <-
-  inla(f_stat,
-      data = inla.stack.data(st.dat.rep.stat),
+  bru(cmp_stat,
+      data = data_rspde_bru_stat[["data"]],
       family = "gaussian",
-      control.predictor = list(A = inla.stack.A(st.dat.rep.stat))
+      options = list(verbose = FALSE)
   )
-
 stat.time.fin <- Sys.time()
 print(stat.time.fin - stat.time.ini)
 
-summary(rspde_fit_stat)
 fit.rspde = rspde.result(rspde_fit_stat, "field", rspde_model_stat)
-summary(fit.rspde)
+
+# summaries
+# summary(rspde_fit_stat)
+
+rspde_fit_stat$summary.fixed
+
+rbind(rspde_fit_stat$summary.hyperpar,
+      rspde_fit_stat$summary.hyperpar[1,]^(-0.5),
+      summary(fit.rspde))
+
+c(unlist(rspde_fit_stat$dic[c("dic", "dic.sat", "p.eff")]),
+  unlist(rspde_fit_stat$waic[c("waic", "p.eff")])) |> t() |> as.data.frame()
+
+rspde_fit_stat$mlik[2,1]
 ```
 
 
@@ -244,33 +247,38 @@ rspde_model_nonstat <- rspde.metric_graph(sf_graph,
 
 data_rspde_bru_nonstat <- graph_data_rspde(rspde_model_nonstat,
                                         repl = ".all",
-                                        name = "field")
+                                        loc_name = "loc")
 
-st.dat.rep.nonstat <- inla.stack(
-    data = data_rspde_bru_nonstat[["data"]]["speed"], 
-    A = list(data_rspde_bru_nonstat[["basis"]],1), 
-    tag = "est",
-    effects =
-      list(c(data_rspde_bru_nonstat[["index"]], list(Intercept = 1)), 
-           list(SpeedLimit = data_rspde_bru_nonstat[["data"]]["SpeedLimit"])
-      )
-    )
-
-
-f_nonstat = speed ~ -1 + Intercept + SpeedLimit + f(field, model = rspde_model_nonstat, replicate = field.repl)
+cmp_nonstat = speed ~ -1 +
+  Intercept(1) +
+  SpeedLimit +
+  field(loc, model = rspde_model_nonstat,
+        replicate = data_rspde_bru_nonstat[["repl"]])
 
 rspde_fit_nonstat <-
-  inla(f_nonstat,
-      data = inla.stack.data(st.dat.rep.nonstat),
+  bru(cmp_nonstat,
+      data = data_rspde_bru_nonstat[["data"]],
       family = "gaussian",
-      control.predictor = list(A = inla.stack.A(st.dat.rep.nonstat))
+      options = list(verbose = FALSE)
   )
 
 nonstat.time.fin <- Sys.time()
 print(nonstat.time.fin - nonstat.time.ini)
 
-summary(rspde_fit_nonstat)
-summary(rspde.result(rspde_fit_nonstat, "field", rspde_model_nonstat))
+
+# summaries
+# summary(rspde_fit_nonstat)
+
+rspde_fit_nonstat$summary.fixed
+
+rbind(rspde_fit_nonstat$summary.hyperpar,
+      rspde_fit_nonstat$summary.hyperpar[1,]^(-0.5),
+      summary(rspde.result(rspde_fit_nonstat, "field", rspde_model_nonstat)))
+
+c(unlist(rspde_fit_nonstat$dic[c("dic", "dic.sat", "p.eff")]),
+  unlist(rspde_fit_nonstat$waic[c("waic", "p.eff")])) |> t() |> as.data.frame()
+
+rspde_fit_nonstat$mlik[2,1]
 
 ```
 

@@ -162,3 +162,11 @@ lapply(names(a), function(member) sum(a[[member]] != b[[member]])) %>% unlist()
 plot(a$.distance_on_edge)
 lines(b$.distance_on_edge, col = "red")
 ```
+
+
+# Tip 2
+
+Go to this [website](https://ourcodingclub.github.io/tutorials/inla/)
+
+
+

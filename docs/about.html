@@ -297,6 +297,18 @@ $(document).ready(function () {
     <li>
       <a href="Vignettes/PT_5.html">Model 5</a>
     </li>
+    <li>
+      <a href="Vignettes/PT_6.html">Model 6</a>
+    </li>
+    <li>
+      <a href="Vignettes/PT_7.html">Model 7</a>
+    </li>
+    <li>
+      <a href="Vignettes/PT_8.html">Model 8</a>
+    </li>
+    <li>
+      <a href="Vignettes/PT_9.html">Model 9</a>
+    </li>
   </ul>
 </li>
 <li>
@@ -384,6 +396,21 @@ href="Vignettes/Nuances/N1.html"><strong>Tips/Tip
 <ul>
 <li><p>INLA implementation</p></li>
 <li><p>data as replicates</p></li>
+</ul></li>
+<li><p><a href="Vignettes/PT_8.html"><strong>Models/Model
+8</strong></a>:</p>
+<ul>
+<li><p><code>start.theta = theta.prior.mean = c(fit.rspde$summary.log.std.dev$mode, fit.rspde$summary.log.range$mode, rep(0, (ncol(B.sigma)-3)))</code></p></li>
+<li><p>data as replicates</p></li>
+</ul></li>
+<li><p><a href="Vignettes/PT_9.html"><strong>Models/Model
+9</strong></a>:</p>
+<ul>
+<li><p><code>sf_graph$edgeweight_to_data()</code> is used directly in
+this file.</p></li>
+<li><p><code>start.theta = theta.prior.mean = c(fit.rspde$summary.log.std.dev$mode, fit.rspde$summary.log.range$mode, rep(0, (ncol(B.sigma)-3)))</code></p></li>
+<li><p>data as replicates</p></li>
+<li></li>
 </ul></li>
 </ol>
 
