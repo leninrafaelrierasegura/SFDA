@@ -239,6 +239,10 @@ mesh = sf_graph$edgeweight_to_data(mesh = TRUE,
 summary(mesh)
 ```
 
+:::: {style="display: flex; to display: grid; grid-template-columns: 1fr 1fr; grid-column-gap: 10px;"}
+
+::: {}
+
 # Stationary model
 
 
@@ -306,6 +310,9 @@ fit.rspde = rspde.result(rspde_fit_stat, "field", rspde_model_stat)
 summary(fit.rspde)
 ```
 
+:::
+
+::: {}
 
 # Nonstationary model
 
@@ -319,7 +326,9 @@ nonstat.time.ini <- Sys.time()
 
 B.sigma = cbind(0, 1, 0, mesh$SpeedLimit, 0)
 B.range = cbind(0, 0, 1, 0, mesh$SpeedLimit)
-init.vec.theta = c(fit.rspde$summary.log.std.dev$mode, fit.rspde$summary.log.range$mode, rep(0, (ncol(B.sigma)-3)))
+init.vec.theta = c(fit.rspde$summary.log.std.dev$mode, 
+                   fit.rspde$summary.log.range$mode, 
+                   rep(0, (ncol(B.sigma)-3)))
 
 rspde_model_nonstat <- rspde.metric_graph(sf_graph,
                                           start.theta = init.vec.theta,
@@ -378,7 +387,9 @@ summary(rspde.result(rspde_fit_nonstat, "field", rspde_model_nonstat))
 
 ```
 
+:::
 
+::::
 
 ```{r}
 save.image(here(paste0("Models_output/", rmarkdown::metadata$title, ".RData")))

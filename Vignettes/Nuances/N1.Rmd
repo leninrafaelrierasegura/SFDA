@@ -42,7 +42,6 @@ htmltools::tagList(
 )
 ```
 
-
 ```{css, echo = FALSE}
 body .main-container {
   max-width: 100% !important;
@@ -63,9 +62,7 @@ pre {
 }
 ```
 
-
 Let us set some global options for all code chunks in this document.
-
 
 ```{r}
 knitr::opts_chunk$set(
@@ -106,7 +103,6 @@ library(dplyr)
 
 library(here)
 ```
-
 
 # Tip 1
 
@@ -163,10 +159,24 @@ plot(a$.distance_on_edge)
 lines(b$.distance_on_edge, col = "red")
 ```
 
-
 # Tip 2
 
 Go to this [website](https://ourcodingclub.github.io/tutorials/inla/)
 
 
+:::: {style="display: flex; to display: grid; grid-template-columns: 2fr 1fr; grid-column-gap: 10px;"}
 
+::: {}
+fdfd
+
+Left vdfvjnfsdv sv sidfv isdf vif vsiejfv ijsdfv fdisv idf vids
+
+:::
+
+::: {}
+Right feinfefv ifesfvifds visv idsf vidfv ijsdv sidjvelvekv ev fldsj
+
+fdf
+:::
+
+::::
