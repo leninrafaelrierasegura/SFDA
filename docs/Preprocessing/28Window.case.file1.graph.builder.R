@@ -3,10 +3,11 @@ library(dplyr)
 library(tidyr)
 library(mapview)
 library(MetricGraph)
+library(here)
 
 # load network from tomtom
-load("Data_files/tomtom.RData")
-load("Data_files/data_day7142128_hour13_with_no_consecutive_zeros.RData") # just to get the crs  
+load(here("Data_files/tomtom.RData"))
+load(here("Data_files/data_day7142128_hour13_with_no_consecutive_zeros.RData")) # just to get the crs  
 
 ################################################################################
 #              build polygon to cut the network and the data                   #
@@ -59,7 +60,7 @@ sf_graph = graph$get_largest()
 #                                   save the graph                             #
 ################################################################################
 
-save(sf_graph, file = "Graph_objects/graph_construction_28_03_2024partialtomtomwhichlonglatsf.RData")
+save(sf_graph, file = here("Graph_objects/graph_construction_25_04_2024partialtomtomwhichlonglatsf.RData"))
 
 
 ################################################################################
@@ -68,7 +69,7 @@ save(sf_graph, file = "Graph_objects/graph_construction_28_03_2024partialtomtomw
 
 data.reduced = st_filter(x = df, y = polygon, .predicate = st_within)
 
-sf_graph$add_observations(data = data.reduced, group = "day", tolerance = 0.02, duplicated_strategy = "jitter") # tolerance = 40m
+sf_graph$add_observations(data = data.reduced, group = "day", tolerance = 0.02, duplicated_strategy = "jitter") # tolerance = 20m
 
 # getting the data from the graph (that is, in graph coordinates)
 data_on_graph = sf_graph$get_data()
@@ -77,4 +78,9 @@ data_on_graph = sf_graph$get_data()
 #                                   save the data                              #
 ################################################################################
 
-save(data_on_graph, file = "Data_files/data_day7142128_hour13_with_no_consecutive_zeros_partialtomtom_graph_processed.RData")
+save(data_on_graph, file = here("Data_files/data_day7142128_hour13_with_no_consecutive_zeros_partialtomtom_graph_25_04_2024_processed.RData"))
+
+
+
+
+# For the last graph, the total number of points removed due do being far is 8396
