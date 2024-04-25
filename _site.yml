@@ -41,6 +41,10 @@ navbar:
           href: Vignettes/PT_9.html
         - text: "Model 10"
           href: Vignettes/PT_10.html
+        - text: "Model 11"
+          href: Vignettes/PT_11.html
+        - text: "Model 12"
+          href: Vignettes/PT_12.html
     - text: "Tips"
       href: Vignettes/Nuances/N1.html
   right:
