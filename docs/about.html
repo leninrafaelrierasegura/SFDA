@@ -13,7 +13,7 @@
 
 <title>About This Website</title>
 
-<script src="site_libs/header-attrs-2.26/header-attrs.js"></script>
+<script src="site_libs/header-attrs-2.24/header-attrs.js"></script>
 <script src="site_libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link href="site_libs/bootstrap-3.3.5/css/flatly.min.css" rel="stylesheet" />
@@ -318,6 +318,21 @@ $(document).ready(function () {
     <li>
       <a href="Vignettes/PT_12.html">Model 12</a>
     </li>
+    <li>
+      <a href="Vignettes/PT_13.html">Model 13</a>
+    </li>
+    <li>
+      <a href="Vignettes/PT_14.html">Model 14</a>
+    </li>
+    <li>
+      <a href="Vignettes/PT_15.html">Model 15</a>
+    </li>
+    <li>
+      <a href="Vignettes/PT_16.html">Model 16</a>
+    </li>
+    <li>
+      <a href="Vignettes/PT_17.html">Model 17</a>
+    </li>
   </ul>
 </li>
 <li>
@@ -419,7 +434,58 @@ href="Vignettes/Nuances/N1.html"><strong>Tips/Tip
 this file.</p></li>
 <li><p><code>start.theta = theta.prior.mean = c(fit.rspde$summary.log.std.dev$mode, fit.rspde$summary.log.range$mode, rep(0, (ncol(B.sigma)-3)))</code></p></li>
 <li><p>data as replicates</p></li>
-<li></li>
+</ul></li>
+<li><p><a href="Vignettes/PT_10.html"><strong>Models/Model
+10</strong></a></p>
+<ul>
+<li><p>Comparison between default prior and priors changed to
+<code>start.theta = theta.prior.mean = c(fit.rspde$summary.log.std.dev$mode, fit.rspde$summary.log.range$mode, rep(0, (ncol(B.sigma)-3)))</code>
+and
+<code>theta.prior.prec = diag(rep(20,length(init.vec.theta)))</code>.</p></li>
+<li><p><code>"Models_output/distmatrixfixed.RData"</code> was created
+here.</p></li>
+<li><p>Variable <code>GROUPS</code> was created and used here.</p></li>
+</ul></li>
+<li><p><a href="Vignettes/PT_11.html"><strong>Models/Model
+11</strong></a></p>
+<ul>
+<li>We consider a covariate and estimate <code>nu</code></li>
+</ul></li>
+<li><p><a href="Vignettes/PT_12.html"><strong>Models/Model
+12</strong></a></p>
+<ul>
+<li>We consider only the field and estimate <code>nu</code></li>
+</ul></li>
+<li><p><a href="Vignettes/PT_13.html"><strong>Models/Model
+13</strong></a></p>
+<ul>
+<li>We consider a covariate, estimate <code>nu</code>, and reduce the
+mesh size from <code>h = 0.05</code> to <code>h = 0.01</code>.</li>
+</ul></li>
+<li><p><a href="Vignettes/PT_14.html"><strong>Models/Model
+14</strong></a></p>
+<ul>
+<li>Just to compute <code>MSE_nearest_neighbor</code>.</li>
+</ul></li>
+<li><p><a href="Vignettes/PT_15.html"><strong>Models/Model
+15</strong></a></p>
+<ul>
+<li><p>Same as Model 14 but now the nearest neighbor after removing
+observations within a radius.</p></li>
+<li><p>Here we do
+<code>save(distance, mse.vector, file = here("Models_output/mse.vector.RData"))</code>.</p></li>
+</ul></li>
+<li><p><a href="Vignettes/PT_16.html"><strong>Models/Model
+16</strong></a></p>
+<ul>
+<li><p>Just to check after reinstalling the packages.</p></li>
+<li><p><code>nu</code> estimated and <code>gaussian</code>
+family.</p></li>
+</ul></li>
+<li><p><a href="Vignettes/PT_17.html"><strong>Models/Model
+17</strong></a></p>
+<ul>
+<li>Jsame as Model 16 but with <code>T</code> family.</li>
 </ul></li>
 </ol>
 

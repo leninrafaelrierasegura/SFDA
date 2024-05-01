@@ -60,7 +60,7 @@ sf_graph = graph$get_largest()
 #                                   save the graph                             #
 ################################################################################
 
-save(sf_graph, file = here("Graph_objects/graph_construction_25_04_2024partialtomtomwhichlonglatsf.RData"))
+save(sf_graph, file = here("Graph_objects/graph_construction_30_04_2024partialtomtomwhichlonglatsf.RData"))
 
 
 ################################################################################
@@ -78,9 +78,10 @@ data_on_graph = sf_graph$get_data()
 #                                   save the data                              #
 ################################################################################
 
-save(data_on_graph, file = here("Data_files/data_day7142128_hour13_with_no_consecutive_zeros_partialtomtom_graph_25_04_2024_processed.RData"))
+save(data_on_graph, file = here("Data_files/data_day7142128_hour13_with_no_consecutive_zeros_partialtomtom_graph_30_04_2024_processed.RData"))
 
 
 
 
-# For the last graph, the total number of points removed due do being far is 8396
+# For the graph built on 25_04_2024, the total number of points removed due do being far is 8396
+# For the graph built on 30_04_2024, the total number of points removed due do being far is 8395

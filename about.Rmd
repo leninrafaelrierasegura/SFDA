@@ -75,5 +75,49 @@ Here is a short description of the results under **Models** tab.
     
     - data as replicates
     
-    - 
+10. [**Models/Model 10**](Vignettes/PT_10.html)
+
+    - Comparison between default prior and priors changed to `start.theta = theta.prior.mean = c(fit.rspde$summary.log.std.dev$mode, fit.rspde$summary.log.range$mode, rep(0, (ncol(B.sigma)-3)))` and `theta.prior.prec = diag(rep(20,length(init.vec.theta)))`.
+    
+    - `"Models_output/distmatrixfixed.RData"` was created here.
+    
+    - Variable `GROUPS` was created and used here.
+
+11. [**Models/Model 11**](Vignettes/PT_11.html)
+
+    - We consider a covariate and estimate `nu`
+    
+    
+12. [**Models/Model 12**](Vignettes/PT_12.html)
+
+    - We consider only the field and estimate `nu`
+    
+    
+13. [**Models/Model 13**](Vignettes/PT_13.html)
+
+    - We consider a covariate, estimate `nu`, and reduce the mesh size from `h = 0.05` to `h = 0.01`.
+    
+    
+14. [**Models/Model 14**](Vignettes/PT_14.html)
+
+    - Just to compute `MSE_nearest_neighbor`.
+  
+15. [**Models/Model 15**](Vignettes/PT_15.html)
+
+    - Same as Model 14 but now the nearest neighbor after removing observations within a radius.
+
+    - Here we do `save(distance, mse.vector, file = here("Models_output/mse.vector.RData"))`.
+    
+
+16. [**Models/Model 16**](Vignettes/PT_16.html)
+
+    - Just to check after reinstalling the packages.
+    
+    - `nu` estimated and `gaussian` family.
+    
+17. [**Models/Model 17**](Vignettes/PT_17.html)
+
+    - Jsame as Model 16 but with `T` family.
+     
+    
     

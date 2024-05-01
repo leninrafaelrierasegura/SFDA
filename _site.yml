@@ -45,6 +45,16 @@ navbar:
           href: Vignettes/PT_11.html
         - text: "Model 12"
           href: Vignettes/PT_12.html
+        - text: "Model 13"
+          href: Vignettes/PT_13.html
+        - text: "Model 14"
+          href: Vignettes/PT_14.html
+        - text: "Model 15"
+          href: Vignettes/PT_15.html
+        - text: "Model 16"
+          href: Vignettes/PT_16.html
+        - text: "Model 17"
+          href: Vignettes/PT_17.html
     - text: "Tips"
       href: Vignettes/Nuances/N1.html
   right:
