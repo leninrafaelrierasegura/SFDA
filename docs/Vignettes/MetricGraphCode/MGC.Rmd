@@ -3,11 +3,13 @@ title: "Study of MetricGraph package functions"
 subtitle: ""
 author: "Lenin Rafael Riera Segura"
 institute: "KAUST"
-date: "Created: 12-04-2024. Last modified: `r format(Sys.time(), '%d-%m-%Y.')`"
+date: "`r format(Sys.time(), '%d-%m-%Y')`"
 output:
   xaringan::moon_reader:
     lib_dir: libs
     nature:
+      ratio: '16:9'
+      slideNumberFormat: '%current%'
       highlightStyle: github
       highlightLines: true
       countIncrementalSlides: false
@@ -48,6 +50,8 @@ htmltools::tagList(
   rmarkdown::html_dependency_font_awesome()
 )
 ```
+
+
 
 ```{r, echo = FALSE}
 knitr::opts_chunk$set(
@@ -313,6 +317,26 @@ If you want to generate a table, make sure it is in the HTML format (instead of 
 
 ```{r}
 knitr::kable(head(iris), format = 'html')
+```
+
+---
+
+# Tables
+
+If you want to generate a table, make sure it is in the HTML format (instead of Markdown or other formats), e.g.,
+
+```{r}
+## define a function for converting and printing to HTML table
+library(xtable)
+htmlPrint <- function(x, ...,
+                      digits = 0, include.rownames = FALSE) {
+  print(xtable(x, digits = digits, ...), type = 'html',
+        include.rownames = include.rownames, ...)
+  }
+```
+
+```{r}
+htmlPrint(head(iris))
 ```
 
 ---

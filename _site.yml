@@ -55,8 +55,16 @@ navbar:
           href: Vignettes/PT_16.html
         - text: "Model 17"
           href: Vignettes/PT_17.html
+        - text: "Model 18"
+          href: Vignettes/PT_18.html
     - text: "Tips"
       href: Vignettes/Nuances/N1.html
+    - text: "Highways"
+      menu:
+        - text: "Highways1"
+          href: Vignettes/Highways/ShinyAppTRY1.Rmd
+        - text: "Highways1"
+          href: Vignettes/Highways/ShinyAppTRY2.Rmd
   right:
     - icon: fa-github
       href: https://github.com/leninrafaelrierasegura/

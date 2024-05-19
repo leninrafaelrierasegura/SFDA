@@ -46,13 +46,15 @@ class: center, middle, inverse, title-slide
 ### KAUST
 ]
 .date[
-### Created: 12-04-2024. Last modified: 24-04-2024.
+### 05-05-2024
 ]
 
 ---
 
 
 background-image: url(https://upload.wikimedia.org/wikipedia/commons/b/be/Sharingan_triple.svg)
+
+
 
 
 
@@ -361,6 +363,39 @@ knitr::kable(head(iris), format = 'html')
 &lt;/table&gt;
 
 
+
+---
+
+# Tables
+
+If you want to generate a table, make sure it is in the HTML format (instead of Markdown or other formats), e.g.,
+
+
+```r
+## define a function for converting and printing to HTML table
+library(xtable)
+htmlPrint &lt;- function(x, ...,
+                      digits = 0, include.rownames = FALSE) {
+  print(xtable(x, digits = digits, ...), type = 'html',
+        include.rownames = include.rownames, ...)
+  }
+```
+
+
+```r
+htmlPrint(head(iris))
+## &lt;!-- html table generated in R 4.4.0 by xtable 1.8-4 package --&gt;
+## &lt;!-- Sun May  5 15:55:10 2024 --&gt;
+## &lt;table border=1&gt;
+## &lt;tr&gt; &lt;th&gt; Sepal.Length &lt;/th&gt; &lt;th&gt; Sepal.Width &lt;/th&gt; &lt;th&gt; Petal.Length &lt;/th&gt; &lt;th&gt; Petal.Width &lt;/th&gt; &lt;th&gt; Species &lt;/th&gt;  &lt;/tr&gt;
+##   &lt;tr&gt; &lt;td align="right"&gt; 5 &lt;/td&gt; &lt;td align="right"&gt; 4 &lt;/td&gt; &lt;td align="right"&gt; 1 &lt;/td&gt; &lt;td align="right"&gt; 0 &lt;/td&gt; &lt;td&gt; setosa &lt;/td&gt; &lt;/tr&gt;
+##   &lt;tr&gt; &lt;td align="right"&gt; 5 &lt;/td&gt; &lt;td align="right"&gt; 3 &lt;/td&gt; &lt;td align="right"&gt; 1 &lt;/td&gt; &lt;td align="right"&gt; 0 &lt;/td&gt; &lt;td&gt; setosa &lt;/td&gt; &lt;/tr&gt;
+##   &lt;tr&gt; &lt;td align="right"&gt; 5 &lt;/td&gt; &lt;td align="right"&gt; 3 &lt;/td&gt; &lt;td align="right"&gt; 1 &lt;/td&gt; &lt;td align="right"&gt; 0 &lt;/td&gt; &lt;td&gt; setosa &lt;/td&gt; &lt;/tr&gt;
+##   &lt;tr&gt; &lt;td align="right"&gt; 5 &lt;/td&gt; &lt;td align="right"&gt; 3 &lt;/td&gt; &lt;td align="right"&gt; 2 &lt;/td&gt; &lt;td align="right"&gt; 0 &lt;/td&gt; &lt;td&gt; setosa &lt;/td&gt; &lt;/tr&gt;
+##   &lt;tr&gt; &lt;td align="right"&gt; 5 &lt;/td&gt; &lt;td align="right"&gt; 4 &lt;/td&gt; &lt;td align="right"&gt; 1 &lt;/td&gt; &lt;td align="right"&gt; 0 &lt;/td&gt; &lt;td&gt; setosa &lt;/td&gt; &lt;/tr&gt;
+##   &lt;tr&gt; &lt;td align="right"&gt; 5 &lt;/td&gt; &lt;td align="right"&gt; 4 &lt;/td&gt; &lt;td align="right"&gt; 2 &lt;/td&gt; &lt;td align="right"&gt; 0 &lt;/td&gt; &lt;td&gt; setosa &lt;/td&gt; &lt;/tr&gt;
+##    &lt;/table&gt;
+```
 
 ---
 
@@ -812,6 +847,8 @@ The chakra comes from [remark.js](https://remarkjs.com), [**knitr**](https://yih
 <style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
 <script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
 <script>var slideshow = remark.create({
+"ratio": "16:9",
+"slideNumberFormat": "%current%",
 "highlightStyle": "github",
 "highlightLines": true,
 "countIncrementalSlides": false

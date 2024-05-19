@@ -117,7 +117,10 @@ Here is a short description of the results under **Models** tab.
     
 17. [**Models/Model 17**](Vignettes/PT_17.html)
 
-    - Jsame as Model 16 but with `T` family.
+    - same as Model 16 but with `T` family.
      
-    
+18. [**Models/Model 18**](Vignettes/PT_18.html)
+
+    - same as Model 16 but with `nbinomial` family.
+     
     
