@@ -1,0 +1,327 @@
+---
+title: "Highways0"
+author: "Several authors"
+date: "Created: 12-04-2024. Last modified: `r format(Sys.time(), '%d-%m-%Y.')`"
+output:
+  html_document:
+    mathjax: "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
+    highlight: pygments
+    theme: flatly
+    code_folding: show
+    # df_print: paged
+    toc: true
+    toc_float:
+      collapsed: true
+      smooth_scroll: true
+    number_sections: true
+    fig_caption: true
+always_allow_html: true
+---
+
+```{r, eval = FALSE, echo = FALSE}
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+######### DO NOT FORGET TO CHANGE THE TITLE EVERY TIME YOU FIT A MODEL #########
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+```
+
+```{r xaringanExtra-clipboard, echo = FALSE}
+htmltools::tagList(
+  xaringanExtra::use_clipboard(
+    button_text = "<i class=\"fa-solid fa-clipboard\" style=\"color: #00008B\"></i>",
+    success_text = "<i class=\"fa fa-check\" style=\"color: #90BE6D\"></i>",
+    error_text = "<i class=\"fa fa-times-circle\" style=\"color: #F94144\"></i>"
+  ),
+  rmarkdown::html_dependency_font_awesome()
+)
+```
+
+
+```{css, echo = FALSE}
+body .main-container {
+  max-width: 100% !important;
+  width: 100% !important;
+}
+body {
+  max-width: 100% !important;
+}
+
+body, td {
+   font-size: 16px;
+}
+code.r{
+  font-size: 14px;
+}
+pre {
+  font-size: 14px
+}
+```
+
+
+Let us set some global options for all code chunks in this document.
+
+
+```{r}
+knitr::opts_chunk$set(
+  message = FALSE,    # Disable messages printed by R code chunks
+  warning = FALSE,    # Disable warnings printed by R code chunks
+  echo = TRUE,        # Show R code within code chunks in output
+  include = TRUE,     # Include both R code and its results in output
+  eval = TRUE,       # Evaluate R code chunks
+  cache = FALSE,       # Enable caching of R code chunks for faster rendering
+  fig.align = "center",
+  out.width = "100%",
+  retina = 2,
+  error = TRUE,
+  collapse = TRUE
+)
+rm(list = ls())
+set.seed(1982)
+```
+
+# Preprocessing
+
+Let us now load some required libraries.
+
+```{r}
+# Load required libraries
+
+# inla.upgrade(testing = TRUE)
+# remotes::install_github("inlabru-org/inlabru", ref = "devel")
+# remotes::install_github("davidbolin/rspde", ref = "devel")
+# remotes::install_github("davidbolin/metricgraph", ref = "devel")
+# remotes::install_github("davidbolin/ngme2", ref = "devel")
+
+library(INLA)
+#inla.setOption(num.threads = 7)
+library(inlabru)
+library(rSPDE)
+library(MetricGraph)
+library(ngme2)
+
+library(plotly)
+library(dplyr)
+library(tidyr)
+library(mapview)
+library(ggplot2)
+library(plotly)
+library(sf)
+
+library(here)
+```
+
+
+# INITIAL DATA
+
+```{r}
+# load network from tomtom and data (the latter just to get the crs)
+load(here("Data_files/tomtom.RData"))
+load(here("Data_files/data_day7142128_hour13_with_no_consecutive_zeros.RData")) # just to get the crs
+
+
+################################################################################
+#              build polygon to cut the network and the data                   #
+################################################################################
+
+polygon = st_multipoint(c(st_point(c(-122.53000, 37.69702)),
+                          st_point(c(-122.37000, 37.69702)),
+                          st_point(c(-122.37000, 37.82600)),
+                          st_point(c(-122.53000, 37.82600)))) %>%
+  st_cast("POLYGON") %>%
+  st_sfc(crs = st_crs(df))
+```
+
+
+```{r}
+ggplot() +
+  geom_sf(data = polygon, aes(color = "Polygon"), size = 0.5) + 
+  geom_sf(data = filter(tomtom, FRC != "7", FRC != "6", FRC != "5"), aes(color = "Highways"), size = 0.5) + 
+  geom_sf(data = df, aes(color = "speed observations"), size = 0.1)  +
+  scale_color_manual(values = c("Polygon" = "blue", "Highways" = "red", "speed observations" = "black")) +
+  theme_minimal() +
+  labs(color = "Objects")
+```
+
+
+
+```{r}
+ggplot() + 
+  geom_sf(data = filter(tomtom, FRC != "7", FRC != "6", FRC != "5"), aes(color = FRC), size = 0.5)
+```
+
+
+```{r}
+(ggplot() + 
+  geom_sf(data = df, aes(color = speed), size = 0.1) + 
+  scale_color_viridis_c(option = "D")) |> ggplotly()
+```
+
+# AFTER BEING CUT
+
+```{r}
+from.tomtom = tomtom %>%
+  dplyr::select(-Id, -Segment.Id, -NewSegId, -timeSet, -dateRange, -standardDeviationSpeed, -travelTimeStandardDeviation) %>%
+  filter(FRC != "7", FRC != "6", FRC != "5") %>% # to remove tomtom class 5, 6 and 7 
+  mutate(value = SpeedLimit, road_type = paste("class_", FRC, sep = ""), aux = paste("class_", FRC, sep = "")) %>%
+  pivot_wider(names_from = aux, values_from = value, values_fill = list(value = 0)) %>%
+  mutate(upto1 = class_0 + class_1) %>%
+  mutate(upto3 = upto1 + class_3) %>%
+  mutate(upto4 = upto3 + class_4) %>%
+  #mutate(upto5 = upto4 + class_5) %>%
+  #mutate(upto6 = upto5 + class_6) %>%
+  mutate(Length  = Length/1000) %>%  # in km
+  mutate(density = sampleSize/Length) %>% # density whole day
+  mutate(density_per_hour = density/24) %>% # density per hour
+  st_transform(crs = st_crs(df)) %>%
+  st_filter(x = ., y = polygon, .predicate = st_within)
+
+data.reduced = st_filter(x = df, y = polygon, .predicate = st_within)
+```
+
+```{r}
+ggplot() +
+  geom_sf(data = polygon, aes(color = "Polygon"), size = 0.5) + 
+  geom_sf(data = from.tomtom, aes(color = "Highways"), size = 0.5) + 
+  geom_sf(data = data.reduced, aes(color = "speed observations"), size = 0.1)  +
+  scale_color_manual(values = c("Polygon" = "blue", "Highways" = "red", "speed observations" = "black")) +
+  theme_minimal() +
+  labs(color = "Objects")
+```
+
+
+```{r}
+load(here("Graph_objects/graph_construction_19MAY24_FRC0134.RData"))
+load(here("Data_files/data_day7142128_hour13_with_no_consecutive_zeros_19MAY24_FRC0134_graph_processed.RData"))
+data_on_graph = data_on_graph %>% 
+  dplyr::select(-datetime)
+
+dim(data_on_graph)
+```
+
+# ALL THE DATA ADDED TO THE GRAPH
+
+```{r}
+(sf_graph$plot(vertex_size = 0, edge_color = "red") + 
+  geom_point(data = data_on_graph, aes(x = .coord_x, y = .coord_y, color = speed), size = 1) +
+  scale_color_viridis_c(option = "D")) |> ggplotly()
+```
+
+# REMOVING SOME POINTS
+
+```{r}
+to_remove = data_on_graph %>%
+  filter(speed == 0, .distance_to_graph > 0.001) 
+dim(to_remove)
+```
+
+
+```{r}
+sf_graph$plot(vertex_size = 0, edge_color = "red") + 
+  geom_point(data = to_remove, aes(x = .coord_x, y = .coord_y, color = speed), size = 1) +
+  scale_color_viridis_c(option = "D")
+```
+
+# FINAL DATASET TO BE ADDED TO THE GRAPH
+
+```{r}
+newdata_on_graph = setdiff(data_on_graph, to_remove) %>% 
+  filter(.distance_to_graph <= 0.003)
+dim(newdata_on_graph)
+```
+
+
+```{r}
+(sf_graph$plot(vertex_size = 0) + 
+  geom_point(data = newdata_on_graph, aes(x = .coord_x, y = .coord_y, color = speed), size = 1) +
+  scale_color_viridis_c(option = "D")) |> ggplotly()
+```
+
+# DATA AFTER BEING ADDED TO THE GRAPH
+
+```{r}
+sf_graph$add_observations(data = newdata_on_graph, 
+                          group = "day", 
+                          normalized = TRUE, 
+                          clear_obs = TRUE)
+```
+
+
+```{r}
+sf_graph$plot(vertex_size = 0, data = "speed", group = 1:4) |> ggplotly()
+sf_graph$get_data() |> dim()
+```
+
+# GETTING THE WEIGHTS VALUES FOR THE OBSERVATION LOCATIONS
+
+
+```{r}
+sf_graph$edgeweight_to_data(data_loc = TRUE)
+```
+
+
+```{r}
+standardize <- function(x) {return((x - mean(x)) / sd(x))}
+data = sf_graph$get_data() %>% 
+  drop_na(-StreetName) %>% # this drops all rows with at least one NA value but without taking into account StreetName
+  #mutate(across(c("SpeedLimit"), ~standardize(.))) %>%
+  dplyr::select(speed, SpeedLimit)
+```
+
+
+```{r}
+dim(data)
+sf_graph$plot(vertex_size = 0, edge_weight = "SpeedLimit", scale_color_weights = ggplot2::scale_color_viridis_c(option = "D"))
+```
+# PLOTTING SPEEDLMITS BEFORE ADDING IT TO THE GRAPH
+
+```{r}
+(sf_graph$plot(vertex_size = 0) + 
+  geom_point(data = data, aes(x = .coord_x, y = .coord_y, color = SpeedLimit), size = 1) +
+  scale_color_viridis_c(option = "D")) |> ggplotly()
+```
+
+
+```{r}
+sf_graph$add_observations(data = data, 
+                          group = "day", 
+                          normalized = TRUE, 
+                          clear_obs = TRUE)
+```
+
+# PLOTTING THE SPEED LIMITS AFTER ADDING IT TO THE GRAPH
+
+```{r}
+sf_graph$plot(vertex_size = 0, data = "SpeedLimit", group = 1:4) |> ggplotly()
+```
+
+
+# BUILDING THE MESH
+
+
+
+```{r}
+h = 0.05
+sf_graph$build_mesh(h = h)
+
+mesh = sf_graph$edgeweight_to_data(mesh = TRUE, 
+                                   add = FALSE, 
+                                   return = TRUE) %>% 
+  filter(.group == 1) #%>%
+  #mutate(across(c("SpeedLimit"), ~standardize(.))) %>%
+  #dplyr:::select.data.frame(SpeedLimit)
+```
+
+```{r}
+sf_graph$plot(vertex_size = 0) + 
+  geom_point(data = mesh, aes(x = .coord_x, y = .coord_y, color = SpeedLimit), size = 1) +
+  scale_color_viridis_c(option = "D")
+```
+
+
+
+

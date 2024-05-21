@@ -4,6 +4,8 @@ title: "About This Website"
 
 - Visit [**Prepreocessing**](Vignettes/dp.html) tab to see the workflow up to today.
 
+# MODELS
+
 Here is a short description of the results under **Models** tab.
 
 1. [**Models/Model 1**](Vignettes/PT_1.html): 
@@ -123,9 +125,13 @@ Here is a short description of the results under **Models** tab.
 
     - same as Model 16 but with `nbinomial` family.
      
+# HIGHWAYS
     
 Here is a short description of the results under **Highways** tab.
     
+0. [**Highways/Highways0**](Vignettes/Highways/Highways0.html)
+
+    - this is to show the data and the graph
     
 1. [**Highways/Highways1**](Vignettes/Highways/Highways1.html)
 
@@ -149,4 +155,30 @@ Here is a short description of the results under **Highways** tab.
     
     - `nu.upper.bound` = 1.5
     
+    - `family` = "T"
     
+5. [**Highways/Highways5**](Vignettes/Highways/Highways5.html)
+
+    - `h` = 0.05
+    
+    - `nu` = 0.5
+    
+    - `family` = "T"
+    
+6. [**Highways/Highways6**](Vignettes/Highways/Highways6.html)
+
+    - `h` = 0.05
+    
+    - `nu` = 0.5
+    
+    - `family` = "nbinomial"
+    
+7. [**Highways/Highways7**](Vignettes/Highways/Highways7.html)
+
+    - `h` = 0.05
+    
+    - `nu` = 0.5
+    
+    - `family` = "gaussian"
+    
+    - `mutate(across(c("speed", "SpeedLimit"), ~standardize(.)))`

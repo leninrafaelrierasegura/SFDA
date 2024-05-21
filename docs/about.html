@@ -349,6 +349,9 @@ $(document).ready(function () {
   </a>
   <ul class="dropdown-menu" role="menu">
     <li>
+      <a href="Vignettes/Highways/Highways0.html">Highways0</a>
+    </li>
+    <li>
       <a href="Vignettes/Highways/Highways1.html">Highways1</a>
     </li>
     <li>
@@ -359,6 +362,15 @@ $(document).ready(function () {
     </li>
     <li>
       <a href="Vignettes/Highways/Highways4.html">Highways4</a>
+    </li>
+    <li>
+      <a href="Vignettes/Highways/Highways5.html">Highways5</a>
+    </li>
+    <li>
+      <a href="Vignettes/Highways/Highways6.html">Highways6</a>
+    </li>
+    <li>
+      <a href="Vignettes/Highways/Highways7.html">Highways7</a>
     </li>
   </ul>
 </li>
@@ -389,6 +401,8 @@ $(document).ready(function () {
 href="Vignettes/dp.html"><strong>Prepreocessing</strong></a> tab to see
 the workflow up to today.</li>
 </ul>
+<div id="models" class="section level1">
+<h1>MODELS</h1>
 <p>Here is a short description of the results under
 <strong>Models</strong> tab.</p>
 <ol style="list-style-type: decimal">
@@ -517,9 +531,17 @@ family.</p></li>
 <li>same as Model 16 but with <code>nbinomial</code> family.</li>
 </ul></li>
 </ol>
+</div>
+<div id="highways" class="section level1">
+<h1>HIGHWAYS</h1>
 <p>Here is a short description of the results under
 <strong>Highways</strong> tab.</p>
-<ol style="list-style-type: decimal">
+<ol start="0" style="list-style-type: decimal">
+<li><p><a
+href="Vignettes/Highways/Highways0.html"><strong>Highways/Highways0</strong></a></p>
+<ul>
+<li>this is to show the data and the graph</li>
+</ul></li>
 <li><p><a
 href="Vignettes/Highways/Highways1.html"><strong>Highways/Highways1</strong></a></p>
 <ul>
@@ -544,8 +566,32 @@ href="Vignettes/Highways/Highways4.html"><strong>Highways/Highways4</strong></a>
 <ul>
 <li><p><code>h</code> = 0.05</p></li>
 <li><p><code>nu.upper.bound</code> = 1.5</p></li>
+<li><p><code>family</code> = “T”</p></li>
+</ul></li>
+<li><p><a
+href="Vignettes/Highways/Highways5.html"><strong>Highways/Highways5</strong></a></p>
+<ul>
+<li><p><code>h</code> = 0.05</p></li>
+<li><p><code>nu</code> = 0.5</p></li>
+<li><p><code>family</code> = “T”</p></li>
+</ul></li>
+<li><p><a
+href="Vignettes/Highways/Highways6.html"><strong>Highways/Highways6</strong></a></p>
+<ul>
+<li><p><code>h</code> = 0.05</p></li>
+<li><p><code>nu</code> = 0.5</p></li>
+<li><p><code>family</code> = “nbinomial”</p></li>
+</ul></li>
+<li><p><a
+href="Vignettes/Highways/Highways7.html"><strong>Highways/Highways7</strong></a></p>
+<ul>
+<li><p><code>h</code> = 0.05</p></li>
+<li><p><code>nu</code> = 0.5</p></li>
+<li><p><code>family</code> = “gaussian”</p></li>
+<li><p><code>mutate(across(c("speed", "SpeedLimit"), ~standardize(.)))</code></p></li>
 </ul></li>
 </ol>
+</div>
 
 
 

@@ -61,6 +61,8 @@ navbar:
       href: Vignettes/Nuances/N1.html
     - text: "Highways"
       menu:
+        - text: "Highways0"
+          href: Vignettes/Highways/Highways0.html
         - text: "Highways1"
           href: Vignettes/Highways/Highways1.html
         - text: "Highways2"
@@ -69,6 +71,12 @@ navbar:
           href: Vignettes/Highways/Highways3.html
         - text: "Highways4"
           href: Vignettes/Highways/Highways4.html
+        - text: "Highways5"
+          href: Vignettes/Highways/Highways5.html
+        - text: "Highways6"
+          href: Vignettes/Highways/Highways6.html
+        - text: "Highways7"
+          href: Vignettes/Highways/Highways7.html
   right:
     - icon: fa-github
       href: https://github.com/leninrafaelrierasegura/
