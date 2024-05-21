@@ -62,9 +62,13 @@ navbar:
     - text: "Highways"
       menu:
         - text: "Highways1"
-          href: Vignettes/Highways/ShinyAppTRY1.Rmd
-        - text: "Highways1"
-          href: Vignettes/Highways/ShinyAppTRY2.Rmd
+          href: Vignettes/Highways/Highways1.html
+        - text: "Highways2"
+          href: Vignettes/Highways/Highways2.html
+        - text: "Highways3"
+          href: Vignettes/Highways/Highways3.html
+        - text: "Highways4"
+          href: Vignettes/Highways/Highways4.html
   right:
     - icon: fa-github
       href: https://github.com/leninrafaelrierasegura/

@@ -1,0 +1,540 @@
+---
+title: "Highways3"
+author: "Several authors"
+date: "Created: 12-04-2024. Last modified: `r format(Sys.time(), '%d-%m-%Y.')`"
+output:
+  html_document:
+    mathjax: "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
+    highlight: pygments
+    theme: flatly
+    code_folding: show
+    # df_print: paged
+    toc: true
+    toc_float:
+      collapsed: true
+      smooth_scroll: true
+    number_sections: true
+    fig_caption: true
+always_allow_html: true
+---
+
+```{r, eval = FALSE, echo = FALSE}
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+######### DO NOT FORGET TO CHANGE THE TITLE EVERY TIME YOU FIT A MODEL #########
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+```
+
+```{r xaringanExtra-clipboard, echo = FALSE}
+htmltools::tagList(
+  xaringanExtra::use_clipboard(
+    button_text = "<i class=\"fa-solid fa-clipboard\" style=\"color: #00008B\"></i>",
+    success_text = "<i class=\"fa fa-check\" style=\"color: #90BE6D\"></i>",
+    error_text = "<i class=\"fa fa-times-circle\" style=\"color: #F94144\"></i>"
+  ),
+  rmarkdown::html_dependency_font_awesome()
+)
+```
+
+
+```{css, echo = FALSE}
+body .main-container {
+  max-width: 100% !important;
+  width: 100% !important;
+}
+body {
+  max-width: 100% !important;
+}
+
+body, td {
+   font-size: 16px;
+}
+code.r{
+  font-size: 14px;
+}
+pre {
+  font-size: 14px
+}
+```
+
+
+Let us set some global options for all code chunks in this document.
+
+
+```{r}
+knitr::opts_chunk$set(
+  message = FALSE,    # Disable messages printed by R code chunks
+  warning = FALSE,    # Disable warnings printed by R code chunks
+  echo = TRUE,        # Show R code within code chunks in output
+  include = TRUE,     # Include both R code and its results in output
+  eval = TRUE,       # Evaluate R code chunks
+  cache = FALSE,       # Enable caching of R code chunks for faster rendering
+  fig.align = "center",
+  out.width = "100%",
+  retina = 2,
+  error = TRUE,
+  collapse = TRUE
+)
+rm(list = ls())
+set.seed(1982)
+```
+
+# Preprocessing
+
+Let us now load some required libraries.
+
+```{r}
+# Load required libraries
+
+# inla.upgrade(testing = TRUE)
+# remotes::install_github("inlabru-org/inlabru", ref = "devel")
+# remotes::install_github("davidbolin/rspde", ref = "devel")
+# remotes::install_github("davidbolin/metricgraph", ref = "devel")
+# remotes::install_github("davidbolin/ngme2", ref = "devel")
+
+library(INLA)
+#inla.setOption(num.threads = 7)
+library(inlabru)
+library(rSPDE)
+library(MetricGraph)
+library(ngme2)
+
+library(plotly)
+library(dplyr)
+
+library(sf)
+
+library(here)
+```
+
+Function `standarize()` below is later used to standardize the covariate `SpeedLimit`.
+
+```{r}
+standardize <- function(x) {return((x - mean(x)) / sd(x))}
+```
+
+
+
+-------------------
+
+**To keep track of the changes, we provide summaries of every new created object. Those summaries can be accessed by pressing the Show buttons below**
+
+------------------
+
+
+We load the graph object `sf_graph` (which only contains weights) and the data (already graph-processed). 
+
+```{r}
+timeallprocedure <- Sys.time()
+load(here("Graph_objects/graph_construction_19MAY24_FRC0134.RData"))
+load(here("Data_files/data_day7142128_hour13_with_no_consecutive_zeros_19MAY24_FRC0134_graph_processed.RData"))
+data_on_graph = data_on_graph %>% 
+  dplyr::select(-datetime)
+```
+
+We check the units of the graph.
+
+```{r}
+sf_graph$get_edge_lengths() %>% head() %>% capture.output() %>% grep("^Units:", ., value = TRUE)
+```
+
+
+```{r, class.source = "fold-hide", eval = TRUE}
+summary(sf_graph)
+summary(data_on_graph)
+```
+
+The following commands remove zero speed observations that are 1m away from the graph, and after that, they remove any speed observations that are 3m away from the graph.
+
+```{r}
+to_remove = data_on_graph %>%
+  filter(speed == 0, .distance_to_graph > 0.001) 
+
+data_on_graph = setdiff(data_on_graph, to_remove) %>% 
+  filter(.distance_to_graph <= 0.003)
+```
+
+
+```{r, class.source = "fold-hide", eval = TRUE}
+summary(to_remove)
+summary(data_on_graph)
+```
+
+We add data to the graph.
+
+```{r}
+sf_graph$add_observations(data = data_on_graph, 
+                          group = "day", 
+                          normalized = TRUE, 
+                          clear_obs = TRUE)
+```
+
+
+```{r, class.source = "fold-hide", eval = TRUE}
+sf_graph$get_data()
+summary(sf_graph)
+```
+
+We get the values of the weights at data locations. This essentially gives us covariates from the weights.
+
+```{r}
+sf_graph$edgeweight_to_data(data_loc = TRUE)
+```
+
+
+```{r, class.source = "fold-hide", eval = TRUE}
+sf_graph$get_data()
+summary(sf_graph)
+```
+
+When running `sf_graph$edgeweight_to_data(data_loc = TRUE)`, some `NA` values are created (because the data is grouped). We remove them below. We also standardize the `SpeedLimit` covariate. 
+
+```{r}
+data = sf_graph$get_data() %>% 
+  drop_na(-StreetName) %>% # this drops all rows with at least one NA value but without taking into account StreetName
+  mutate(across(c("SpeedLimit"), ~standardize(.))) %>%
+  dplyr::select(speed, SpeedLimit)
+```
+
+
+--- 
+
+The code of chunk below was executed only one time.
+
+---
+
+```
+{r, eval = FALSE}
+aux = data |>
+  rename(distance_on_edge = .distance_on_edge, edge_number = .edge_number) |>
+  as.data.frame() |>
+  dplyr::select(edge_number, distance_on_edge, .group)
+
+distmatrixlist = list()
+
+for (i in 1:4) {
+  distmatrixlist[[i]] = sf_graph$compute_geodist_PtE(PtE = aux %>% 
+                                                       filter(.group == as.character(i)) %>% 
+                                                       dplyr::select(-.group),
+                                                     normalized = TRUE,
+                                                     include_vertices = FALSE)
+}
+
+
+save(distmatrixlist, file = here("Models_output/distmatrixfixed_19May24.RData"))
+```
+
+--- 
+
+The code of chunk above was executed only one time.
+
+---
+
+```{r, class.source = "fold-hide", eval = TRUE}
+summary(data)
+```
+
+We add the data again but now with the new standardized `SpeedLimit` covariate.
+
+```{r}
+sf_graph$add_observations(data = data, 
+                          group = "day", 
+                          normalized = TRUE, 
+                          clear_obs = TRUE)
+```
+
+
+```{r, class.source = "fold-hide", eval = TRUE}
+sf_graph$get_data()
+summary(sf_graph)
+```
+
+We build a mesh.
+
+```{r}
+h = 0.01
+sf_graph$build_mesh(h = h)
+```
+
+
+```{r, class.source = "fold-hide", eval = TRUE}
+summary(sf_graph)
+```
+
+We get the value of the weights at mesh locations. This will allow us to built matrices `B.sigma` and `B.range` below. Again, `sf_graph$edgeweight_to_data(mesh = TRUE, add = FALSE, return = TRUE)` creates repeated information (because the data is grouped). We fix that by filtering one group. We also standardize the `SpeedLimit` covariate. 
+
+```{r}
+mesh = sf_graph$edgeweight_to_data(mesh = TRUE, 
+                                   add = FALSE, 
+                                   return = TRUE) %>% 
+  filter(.group == 1) %>%
+  mutate(across(c("SpeedLimit"), ~standardize(.))) %>%
+  dplyr:::select.data.frame(SpeedLimit)
+```
+
+
+```{r, class.source = "fold-hide", eval = TRUE}
+summary(mesh)
+```
+
+
+:::: {style="display: flex; to display: grid; grid-template-columns: 1fr 1fr; grid-column-gap: 10px;"}
+
+::: {}
+
+## Stationary model
+
+
+- Observe that we are considering replicates.
+
+```{r}
+stat.time.ini <- Sys.time()
+################################################################################
+################################# STATIONARY MODEL #############################
+################################################################################
+
+rspde_model_stat <- rspde.metric_graph(sf_graph,
+                                         parameterization = "matern",
+                                         nu.upper.bound = 1.5)
+```
+
+
+```{r, class.source = "fold-hide", eval = TRUE}
+str(rspde_model_stat)
+```
+
+
+```{r}
+data_rspde_bru_stat <- graph_data_rspde(rspde_model_stat,
+                                        repl = ".all",
+                                        loc_name = "loc")
+
+```
+
+
+```{r, class.source = "fold-hide", eval = TRUE}
+str(data_rspde_bru_stat)
+```
+
+
+
+
+```{r}
+cmp_stat = speed ~ -1 +
+  Intercept(1) +
+  SpeedLimit +
+  field(loc, model = rspde_model_stat,
+        replicate = data_rspde_bru_stat[["repl"]])
+
+rspde_fit_stat <-
+  bru(cmp_stat,
+      data = data_rspde_bru_stat[["data"]],
+      family = "gaussian",
+      options = list(verbose = FALSE)
+  )
+```
+
+
+```{r, class.source = "fold-hide", eval = TRUE}
+str(rspde_fit_stat)
+```
+
+
+```{r, collapse = FALSE}
+stat.time.fin <- Sys.time()
+print(stat.time.fin - stat.time.ini)
+
+summary(rspde_fit_stat)
+fit.rspde = rspde.result(rspde_fit_stat, "field", rspde_model_stat)
+summary(fit.rspde)
+```
+
+:::
+
+::: {}
+
+## Nonstationary model
+
+- Observe that we are using the computed parameters from the stationary model as initial values for the nonstationary models.
+
+```{r}
+nonstat.time.ini <- Sys.time()
+################################################################################
+############################# NON STATIONARY MODEL #############################
+################################################################################
+
+B.sigma = cbind(0, 1, 0, mesh$SpeedLimit, 0)
+B.range = cbind(0, 0, 1, 0, mesh$SpeedLimit)
+init.vec.theta = c(fit.rspde$summary.log.std.dev$mode, 
+                   fit.rspde$summary.log.range$mode, 
+                   rep(0, (ncol(B.sigma)-3)))
+
+rspde_model_nonstat <- rspde.metric_graph(sf_graph,
+                                          start.theta = init.vec.theta,
+                                          theta.prior.mean = init.vec.theta,
+                                          B.sigma = B.sigma,
+                                          B.range = B.range,
+                                          parameterization = "matern",
+                                          nu.upper.bound = 1.5)
+```
+
+
+```{r, class.source = "fold-hide", eval = TRUE}
+str(rspde_model_nonstat)
+```
+
+
+```{r}
+data_rspde_bru_nonstat <- graph_data_rspde(rspde_model_nonstat,
+                                           repl = ".all",
+                                           loc_name = "loc")
+```
+
+
+```{r, class.source = "fold-hide", eval = TRUE}
+str(data_rspde_bru_nonstat)
+```
+
+
+```{r}
+cmp_nonstat = speed ~ -1 +
+  Intercept(1) +
+  SpeedLimit +
+  field(loc, model = rspde_model_nonstat,
+        replicate = data_rspde_bru_nonstat[["repl"]])
+
+rspde_fit_nonstat <-
+  bru(cmp_nonstat,
+      data = data_rspde_bru_nonstat[["data"]],
+      family = "gaussian",
+      options = list(verbose = FALSE)
+  )
+```
+
+
+```{r, class.source = "fold-hide", eval = TRUE}
+str(rspde_fit_nonstat)
+```
+
+
+```{r collapse = FALSE}
+nonstat.time.fin <- Sys.time()
+print(nonstat.time.fin - nonstat.time.ini)
+
+summary(rspde_fit_nonstat)
+summary(rspde.result(rspde_fit_nonstat, "field", rspde_model_nonstat))
+
+```
+
+:::
+
+::::
+
+
+
+## Crossvalidation 1
+
+```{r}
+#load(here("Models_output/distmatrixfixed.RData"))
+
+points = data %>%
+  as.data.frame() %>%
+  st_as_sf(coords = c(".coord_x", ".coord_y"), crs = 4326) %>%
+  mutate(., index = 1:nrow(.)) %>% 
+  st_drop_geometry() %>%
+  dplyr:::select(speed, .group, index) %>%
+  mutate(.group = as.numeric(.group)) %>%
+  group_by(.group) %>%
+  mutate(indexingroup = seq_len(n())) %>%
+  ungroup()
+
+distance = seq(from = 0, to = 200, by = 20)/1000
+```
+
+--- 
+
+The code of chunk below was executed only one time.
+
+---
+
+```
+{r}
+load(here("Models_output/distmatrixfixed_19May24.RData"))
+
+points = data %>%
+  as.data.frame() %>%
+  st_as_sf(coords = c(".coord_x", ".coord_y"), crs = 4326) %>%
+  mutate(., index = 1:nrow(.)) %>% 
+  st_drop_geometry() %>%
+  dplyr:::select(speed, .group, index) %>%
+  mutate(.group = as.numeric(.group)) %>%
+  group_by(.group) %>%
+  mutate(indexingroup = seq_len(n())) %>%
+  ungroup()
+
+distance = seq(from = 0, to = 200, by = 20)/1000
+
+GROUPS <- list()
+for (j in 1:length(distance)) {
+  print(j)
+  GROUPS[[j]] = list()
+  for (i in 1:nrow(points)) {
+    rowi = points[i, ]
+    GROUPS[[j]][[i]] <- which(as.vector(distmatrixlist[[rowi$.group]][rowi$indexingroup,]) <= distance[j])
+  }
+}
+save(GROUPS, file = here("Models_output/GROUPS_19May24.RData"))
+```
+--- 
+
+The code of chunk above was executed only one time.
+
+---
+
+```{r, fig.height = 8}
+load(here("Models_output/GROUPS_19May24.RData"))
+mse.stat <- mse.nonstat <- ls.stat <- ls.nonstat <- rep(0,length(distance))
+# cross-validation for-loop
+for (j in 1:length(distance)) {
+  print(j)
+  # cross-validation of the stationary model
+  cv.stat <- inla.group.cv(rspde_fit_stat, groups = GROUPS[[j]])
+  # cross-validation of the nonstationary model
+  cv.nonstat <- inla.group.cv(rspde_fit_nonstat, groups = GROUPS[[j]])
+  # obtain MSE and LS
+  mse.stat[j] <- mean((cv.stat$mean - points$speed)^2)
+  mse.nonstat[j] <- mean((cv.nonstat$mean - points$speed)^2)
+  ls.stat[j] <- mean(log(cv.stat$cv))
+  ls.nonstat[j] <- mean(log(cv.nonstat$cv))
+}
+
+## plot results
+par(mfrow = c(2,2), family = "Palatino")
+
+# Plot MSE
+plot(distance, mse.stat, main = "MSE", ylim = c(min(mse.nonstat, mse.stat), max(mse.nonstat, mse.stat)),
+     type = "l", ylab = "MSE", xlab = "distance in m", col = "black")
+lines(distance, mse.nonstat, col = "blue")
+legend("bottomright", legend = c("Stationary", "Non-stationary"), col = c("black", "blue"), lty = 1)
+
+# Plot log-score
+plot(distance, -ls.stat, main = "log-score", ylim = c(min(-ls.nonstat, -ls.stat), max(-ls.nonstat, -ls.stat)),
+     type = "l", ylab = "log-score", xlab = "distance in m", col = "black")
+lines(distance, -ls.nonstat, col = "blue")
+legend("bottomright", legend = c("Stationary", "Non-stationary"), col = c("black", "blue"), lty = 1)
+
+```
+
+
+
+```{r}
+finaltimeallprocedure <- Sys.time()
+print(finaltimeallprocedure - timeallprocedure)
+save.image(here(paste0("Models_output/", rmarkdown::metadata$title, ".RData")))
+```
+

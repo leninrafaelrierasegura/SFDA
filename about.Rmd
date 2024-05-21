@@ -124,3 +124,29 @@ Here is a short description of the results under **Models** tab.
     - same as Model 16 but with `nbinomial` family.
      
     
+Here is a short description of the results under **Highways** tab.
+    
+    
+1. [**Highways/Highways1**](Vignettes/Highways/Highways1.html)
+
+    - `nu` = 0.5
+    
+
+2. [**Highways/Highways2**](Vignettes/Highways/Highways2.html)
+
+    - same as `Highways1`, except `nu.upper.bound` = 1.5
+    
+
+3. [**Highways/Highways3**](Vignettes/Highways/Highways3.html)
+
+    - same as `Highways2`, except `h` = 0.01
+    
+    - **Conclusion. Changing the mesh size does not make any difference.**
+    
+4. [**Highways/Highways4**](Vignettes/Highways/Highways4.html)
+
+    - `h` = 0.05
+    
+    - `nu.upper.bound` = 1.5
+    
+    

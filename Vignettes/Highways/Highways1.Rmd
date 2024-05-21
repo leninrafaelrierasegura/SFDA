@@ -130,18 +130,20 @@ standardize <- function(x) {return((x - mean(x)) / sd(x))}
 We load the graph object `sf_graph` (which only contains weights) and the data (already graph-processed). 
 
 ```{r}
-load(here("Graph_objects/graph_construction_30_04_2024partialtomtomwhichlonglatsf.RData"))
-load(here("Data_files/data_day7142128_hour13_with_no_consecutive_zeros_partialtomtom_graph_30_04_2024_processed.RData"))
+load(here("Graph_objects/graph_construction_19MAY24_FRC0134.RData"))
+load(here("Data_files/data_day7142128_hour13_with_no_consecutive_zeros_19MAY24_FRC0134_graph_processed.RData"))
 data_on_graph = data_on_graph %>% 
   dplyr::select(-datetime)
 ```
+
+We check the units of the graph.
 
 ```{r}
 sf_graph$get_edge_lengths() %>% head() %>% capture.output() %>% grep("^Units:", ., value = TRUE)
 ```
 
 
-```{r, class.source = "fold-hide"}
+```{r, class.source = "fold-hide", eval = TRUE}
 summary(sf_graph)
 summary(data_on_graph)
 ```
@@ -153,11 +155,11 @@ to_remove = data_on_graph %>%
   filter(speed == 0, .distance_to_graph > 0.001) 
 
 data_on_graph = setdiff(data_on_graph, to_remove) %>% 
-  filter(.distance_to_graph <= 0.003) %>% mutate(E = 1)
+  filter(.distance_to_graph <= 0.003)
 ```
 
 
-```{r, class.source = "fold-hide"}
+```{r, class.source = "fold-hide", eval = TRUE}
 summary(to_remove)
 summary(data_on_graph)
 ```
@@ -172,7 +174,7 @@ sf_graph$add_observations(data = data_on_graph,
 ```
 
 
-```{r, class.source = "fold-hide"}
+```{r, class.source = "fold-hide", eval = TRUE}
 sf_graph$get_data()
 summary(sf_graph)
 ```
@@ -184,7 +186,7 @@ sf_graph$edgeweight_to_data(data_loc = TRUE)
 ```
 
 
-```{r, class.source = "fold-hide"}
+```{r, class.source = "fold-hide", eval = TRUE}
 sf_graph$get_data()
 summary(sf_graph)
 ```
@@ -195,10 +197,7 @@ When running `sf_graph$edgeweight_to_data(data_loc = TRUE)`, some `NA` values ar
 data = sf_graph$get_data() %>% 
   drop_na(-StreetName) %>% # this drops all rows with at least one NA value but without taking into account StreetName
   mutate(across(c("SpeedLimit"), ~standardize(.))) %>%
-  dplyr::select(speed, SpeedLimit, E) %>% mutate(speed = floor(speed))
-
-
-E = data$E
+  dplyr::select(speed, SpeedLimit)
 ```
 
 
@@ -226,7 +225,7 @@ for (i in 1:4) {
 }
 
 
-save(distmatrixlist, file = here("Models_output/distmatrixfixed30_04_2024.RData"))
+save(distmatrixlist, file = here("Models_output/distmatrixfixed_19May24.RData"))
 ```
 
 --- 
@@ -235,7 +234,7 @@ The code of chunk above was executed only one time.
 
 ---
 
-```{r, class.source = "fold-hide"}
+```{r, class.source = "fold-hide", eval = TRUE}
 summary(data)
 ```
 
@@ -249,7 +248,7 @@ sf_graph$add_observations(data = data,
 ```
 
 
-```{r, class.source = "fold-hide"}
+```{r, class.source = "fold-hide", eval = TRUE}
 sf_graph$get_data()
 summary(sf_graph)
 ```
@@ -262,7 +261,7 @@ sf_graph$build_mesh(h = h)
 ```
 
 
-```{r, class.source = "fold-hide"}
+```{r, class.source = "fold-hide", eval = TRUE}
 summary(sf_graph)
 ```
 
@@ -278,7 +277,7 @@ mesh = sf_graph$edgeweight_to_data(mesh = TRUE,
 ```
 
 
-```{r, class.source = "fold-hide"}
+```{r, class.source = "fold-hide", eval = TRUE}
 summary(mesh)
 ```
 
@@ -304,7 +303,7 @@ rspde_model_stat <- rspde.metric_graph(sf_graph,
 ```
 
 
-```{r, class.source = "fold-hide"}
+```{r, class.source = "fold-hide", eval = TRUE}
 str(rspde_model_stat)
 ```
 
@@ -317,7 +316,7 @@ data_rspde_bru_stat <- graph_data_rspde(rspde_model_stat,
 ```
 
 
-```{r, class.source = "fold-hide"}
+```{r, class.source = "fold-hide", eval = TRUE}
 str(data_rspde_bru_stat)
 ```
 
@@ -334,14 +333,13 @@ cmp_stat = speed ~ -1 +
 rspde_fit_stat <-
   bru(cmp_stat,
       data = data_rspde_bru_stat[["data"]],
-      family = "nbinomial",
-      #E = E,
+      family = "gaussian",
       options = list(verbose = FALSE)
   )
 ```
 
 
-```{r, class.source = "fold-hide"}
+```{r, class.source = "fold-hide", eval = TRUE}
 str(rspde_fit_stat)
 ```
 
@@ -385,7 +383,7 @@ rspde_model_nonstat <- rspde.metric_graph(sf_graph,
 ```
 
 
-```{r, class.source = "fold-hide"}
+```{r, class.source = "fold-hide", eval = TRUE}
 str(rspde_model_nonstat)
 ```
 
@@ -397,7 +395,7 @@ data_rspde_bru_nonstat <- graph_data_rspde(rspde_model_nonstat,
 ```
 
 
-```{r, class.source = "fold-hide"}
+```{r, class.source = "fold-hide", eval = TRUE}
 str(data_rspde_bru_nonstat)
 ```
 
@@ -412,13 +410,13 @@ cmp_nonstat = speed ~ -1 +
 rspde_fit_nonstat <-
   bru(cmp_nonstat,
       data = data_rspde_bru_nonstat[["data"]],
-      family = "nbinomial",
+      family = "gaussian",
       options = list(verbose = FALSE)
   )
 ```
 
 
-```{r, class.source = "fold-hide"}
+```{r, class.source = "fold-hide", eval = TRUE}
 str(rspde_fit_nonstat)
 ```
 
@@ -454,7 +452,7 @@ points = data %>%
   mutate(indexingroup = seq_len(n())) %>%
   ungroup()
 
-distance = seq(from = 0, to = 400, by = 20)/1000
+distance = seq(from = 0, to = 200, by = 20)/1000
 ```
 
 --- 
@@ -465,7 +463,7 @@ The code of chunk below was executed only one time.
 
 ```
 {r}
-load(here("Models_output/distmatrixfixed30_04_2024.RData"))
+load(here("Models_output/distmatrixfixed_19May24.RData"))
 
 points = data %>%
   as.data.frame() %>%
@@ -478,7 +476,7 @@ points = data %>%
   mutate(indexingroup = seq_len(n())) %>%
   ungroup()
 
-distance = seq(from = 0, to = 400, by = 20)/1000
+distance = seq(from = 0, to = 200, by = 20)/1000
 
 GROUPS <- list()
 for (j in 1:length(distance)) {
@@ -489,7 +487,7 @@ for (j in 1:length(distance)) {
     GROUPS[[j]][[i]] <- which(as.vector(distmatrixlist[[rowi$.group]][rowi$indexingroup,]) <= distance[j])
   }
 }
-save(GROUPS, file = here("Models_output/GROUPS_for_window_case30_04_2024.RData"))
+save(GROUPS, file = here("Models_output/GROUPS_19May24.RData"))
 ```
 --- 
 
@@ -498,7 +496,7 @@ The code of chunk above was executed only one time.
 ---
 
 ```{r, fig.height = 8}
-load(here("Models_output/GROUPS_for_window_case30_04_2024.RData"))
+load(here("Models_output/GROUPS_19May24.RData"))
 mse.stat <- mse.nonstat <- ls.stat <- ls.nonstat <- rep(0,length(distance))
 # cross-validation for-loop
 for (j in 1:length(distance)) {
@@ -513,10 +511,7 @@ for (j in 1:length(distance)) {
   ls.stat[j] <- mean(log(cv.stat$cv))
   ls.nonstat[j] <- mean(log(cv.nonstat$cv))
 }
-```
 
-
-```{r, fig.height = 8}
 ## plot results
 par(mfrow = c(2,2), family = "Palatino")
 
@@ -525,12 +520,7 @@ plot(distance, mse.stat, main = "MSE", ylim = c(min(mse.nonstat, mse.stat), max(
      type = "l", ylab = "MSE", xlab = "distance in m", col = "black")
 lines(distance, mse.nonstat, col = "blue")
 legend("bottomright", legend = c("Stationary", "Non-stationary"), col = c("black", "blue"), lty = 1)
-```
 
-
-```{r, fig.height = 8}
-## plot results
-par(mfrow = c(2,2), family = "Palatino")
 # Plot log-score
 plot(distance, -ls.stat, main = "log-score", ylim = c(min(-ls.nonstat, -ls.stat), max(-ls.nonstat, -ls.stat)),
      type = "l", ylab = "log-score", xlab = "distance in m", col = "black")
