@@ -244,17 +244,39 @@ dim(newdata_on_graph)
 # DATA AFTER BEING ADDED TO THE GRAPH
 
 ```{r}
+range(newdata_on_graph$.distance_to_graph)
+```
+
+
+
+```{r}
 sf_graph$add_observations(data = newdata_on_graph, 
                           group = "day", 
                           normalized = TRUE, 
-                          clear_obs = TRUE)
+                          clear_obs = TRUE,
+                          tolerance = 0.02,
+                          duplicated_strategy = "jitter")
 ```
 
 
 ```{r}
 sf_graph$plot(vertex_size = 0, data = "speed", group = 1:4) |> ggplotly()
-sf_graph$get_data() |> dim()
+auxDAG = sf_graph$get_data() 
+auxDAG |> dim()
 ```
+
+# DATA AFTER BEING ADDED TO THE GRAPH BUT WITHOUT USING PLOT METHOD
+
+```{r}
+(sf_graph$plot(vertex_size = 0) + 
+  geom_point(data = auxDAG, aes(x = .coord_x, y = .coord_y, color = speed), size = 1) +
+  scale_color_viridis_c(option = "D")) |> ggplotly()
+```
+
+```{r}
+
+```
+
 
 # GETTING THE WEIGHTS VALUES FOR THE OBSERVATION LOCATIONS
 
@@ -277,7 +299,8 @@ data = sf_graph$get_data() %>%
 dim(data)
 sf_graph$plot(vertex_size = 0, edge_weight = "SpeedLimit", scale_color_weights = ggplot2::scale_color_viridis_c(option = "D"))
 ```
-# PLOTTING SPEEDLMITS BEFORE ADDING IT TO THE GRAPH
+
+# PLOTTING SPEEDLIMITS BEFORE ADDING IT TO THE GRAPH
 
 ```{r}
 (sf_graph$plot(vertex_size = 0) + 
@@ -292,6 +315,7 @@ sf_graph$add_observations(data = data,
                           normalized = TRUE, 
                           clear_obs = TRUE)
 ```
+
 
 # PLOTTING THE SPEED LIMITS AFTER ADDING IT TO THE GRAPH
 

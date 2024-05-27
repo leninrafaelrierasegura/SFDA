@@ -372,6 +372,27 @@ $(document).ready(function () {
     <li>
       <a href="Vignettes/Highways/Highways7.html">Highways7</a>
     </li>
+    <li>
+      <a href="Vignettes/Highways/Highways8.html">Highways8</a>
+    </li>
+    <li>
+      <a href="Vignettes/Highways/Highways9.html">Highways9</a>
+    </li>
+    <li>
+      <a href="Vignettes/Highways/Highways10.html">Highways10</a>
+    </li>
+    <li>
+      <a href="Vignettes/Highways/Highways11.html">Highways11</a>
+    </li>
+    <li>
+      <a href="Vignettes/Highways/Highways12.html">Highways12</a>
+    </li>
+    <li>
+      <a href="Vignettes/Highways/Highways13.html">Highways13</a>
+    </li>
+    <li>
+      <a href="Vignettes/Highways/Highways14.html">Highways14</a>
+    </li>
   </ul>
 </li>
       </ul>
@@ -589,6 +610,61 @@ href="Vignettes/Highways/Highways7.html"><strong>Highways/Highways7</strong></a>
 <li><p><code>nu</code> = 0.5</p></li>
 <li><p><code>family</code> = “gaussian”</p></li>
 <li><p><code>mutate(across(c("speed", "SpeedLimit"), ~standardize(.)))</code></p></li>
+</ul></li>
+<li><p><a
+href="Vignettes/Highways/Highways8.html"><strong>Highways/Highways8</strong></a></p>
+<ul>
+<li><p>Parameters as usual. That is, <code>h</code> = 0.05,
+<code>nu</code> = 0.5, <code>family</code> = “gaussian”,
+<code>mutate(across(c(SpeedLimit"), ~standardize(.)))</code>.</p></li>
+<li><p>Simulated data for stationary and nonstationary
+separately.</p></li>
+<li><p><strong>Conclusion: Modeling are working fine. Crossvalidation
+not so much. Error in crossvalidation corrected in the following
+vignettes.</strong></p></li>
+</ul></li>
+<li><p><a
+href="Vignettes/Highways/Highways9.html"><strong>Highways/Highways9</strong></a></p>
+<ul>
+<li><p>Parameters as usual. That is, <code>h</code> = 0.05,
+<code>nu</code> = 0.5, <code>family</code> = “gaussian”,
+<code>mutate(across(c(SpeedLimit"), ~standardize(.)))</code>.</p></li>
+<li><p>Simulated data only for nonstationary model.</p></li>
+<li><p>Initial parameters for the nonstationary from the stationary.
+That is, we set <code>start.theta = init.vec.theta</code> and
+<code>theta.prior.mean = init.vec.theta</code>.</p></li>
+</ul></li>
+<li><p><a
+href="Vignettes/Highways/Highways10.html"><strong>Highways/Highways10</strong></a></p>
+<ul>
+<li><p>Similar as <code>Highways9</code> except that initial parameters
+for the nonstationary <strong>do not come</strong> from the
+stationary.</p></li>
+<li><p><strong>Conclusion: The estimates are better in this case than in
+<code>Highways9</code>.</strong></p></li>
+</ul></li>
+<li><p><a
+href="Vignettes/Highways/Highways11.html"><strong>Highways/Highways11</strong></a></p>
+<ul>
+<li>Similar as <code>Highways1</code> except that crossvalidation is
+corrected.</li>
+</ul></li>
+<li><p><a
+href="Vignettes/Highways/Highways12.html"><strong>Highways/Highways12</strong></a></p>
+<ul>
+<li><p>Similar as <code>Highways11</code> except that
+<code>mutate(across(c("speed", "SpeedLimit"), ~standardize(.)))</code>.</p></li>
+<li><p><strong>Conclusion: Not a change.</strong></p></li>
+</ul></li>
+<li><p><a
+href="Vignettes/Highways/Highways13.html"><strong>Highways/Highways13</strong></a></p>
+<ul>
+<li><p>Similar as <code>Highways10</code> except that simulated data
+only for stationary model.</p></li>
+<li><p><strong>Conclusion: From Highway10 and Highway13 we can see that
+fitting a nonstationary model for stationary data has no benefit. The
+stationary model is better when the data is
+nonstationary.</strong></p></li>
 </ul></li>
 </ol>
 </div>

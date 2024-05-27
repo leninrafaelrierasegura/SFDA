@@ -1,6 +1,6 @@
 library(plotly)
 library(dplyr)
-
+library(here)
 # helper functions
 standardize <- function(vector) {return((vector - mean(vector)) / sd(vector))}
 convert_to_binary <- function(input_vector) {return(ifelse(input_vector != 0, 1, 0))}
@@ -11,7 +11,7 @@ convert_to_binary <- function(input_vector) {return(ifelse(input_vector != 0, 1,
 
 
 # loading the data
-load("Data_files/data_on_graph_with_covariates_no_consecutive_zerosgraphsubset.RData")
+load(here("Data_files/data_on_graph_with_covariates_no_consecutive_zerosgraphsubset.RData"))
 
 data = data_on_graph_with_covariates %>% 
   mutate(across(starts_with(c("class_", "upto")), list(ind = convert_to_binary))) %>%

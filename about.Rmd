@@ -182,3 +182,52 @@ Here is a short description of the results under **Highways** tab.
     - `family` = "gaussian"
     
     - `mutate(across(c("speed", "SpeedLimit"), ~standardize(.)))`
+    
+    
+8. [**Highways/Highways8**](Vignettes/Highways/Highways8.html)
+
+    - Parameters as usual. That is, `h` = 0.05, `nu` = 0.5, `family` = "gaussian", `mutate(across(c(SpeedLimit"), ~standardize(.)))`.
+    
+    - Simulated data for stationary and nonstationary separately.
+    
+    - **Conclusion: Modeling are working fine. Crossvalidation not so much. Error in crossvalidation corrected in the following vignettes.**
+    
+    
+9. [**Highways/Highways9**](Vignettes/Highways/Highways9.html)
+
+    - Parameters as usual. That is, `h` = 0.05, `nu` = 0.5, `family` = "gaussian", `mutate(across(c(SpeedLimit"), ~standardize(.)))`.
+    
+    - Simulated data only for nonstationary model.
+    
+    - Initial parameters for the nonstationary from the stationary. That is, we set `start.theta = init.vec.theta` and `theta.prior.mean = init.vec.theta`.
+    
+    
+10. [**Highways/Highways10**](Vignettes/Highways/Highways10.html)
+
+    - Similar as `Highways9` except that initial parameters for the nonstationary **do not come** from the stationary.
+    
+    - **Conclusion: The estimates are better in this case than in `Highways9`.**
+    
+    
+11. [**Highways/Highways11**](Vignettes/Highways/Highways11.html)
+
+    - Similar as `Highways1` except that crossvalidation is corrected.
+
+
+12. [**Highways/Highways12**](Vignettes/Highways/Highways12.html)
+
+    - Similar as `Highways11` except that `mutate(across(c("speed", "SpeedLimit"), ~standardize(.)))`.
+    
+    - **Conclusion: Not a change.**
+    
+    
+13. [**Highways/Highways13**](Vignettes/Highways/Highways13.html)
+
+    - Similar as `Highways10` except that simulated data only for stationary model.
+    
+    - **Conclusion: From Highway10 and Highway13 we can see that fitting a nonstationary model for stationary data has no benefit. The stationary model is better when the data is nonstationary.**
+    
+    
+    
+    
+    
