@@ -91,6 +91,20 @@ navbar:
           href: Vignettes/Highways/Highways13.html
         - text: "Highways14"
           href: Vignettes/Highways/Highways14.html
+        - text: "Highways15"
+          href: Vignettes/Highways/Highways15.html
+        - text: "Highways16"
+          href: Vignettes/Highways/Highways16.html
+        - text: "Highways17"
+          href: Vignettes/Highways/Highways17.html
+        - text: "Highways18"
+          href: Vignettes/Highways/Highways18.html
+        - text: "Highways19"
+          href: Vignettes/Highways/Highways19.html
+        - text: "Highways20"
+          href: Vignettes/Highways/Highways20.html
+        - text: "Highways21"
+          href: Vignettes/Highways/Highways21.html
   right:
     - icon: fa-github
       href: https://github.com/leninrafaelrierasegura/

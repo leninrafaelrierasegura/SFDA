@@ -227,7 +227,51 @@ Here is a short description of the results under **Highways** tab.
     
     - **Conclusion: From Highway10 and Highway13 we can see that fitting a nonstationary model for stationary data has no benefit. The stationary model is better when the data is nonstationary.**
     
+14. [**Highways/Highways14**](Vignettes/Highways/Highways14.html)
+
+    - Just to show some visualizations.
+    
+15. [**Highways/Highways15**](Vignettes/Highways/Highways15.html)
+
+    - Using bru_rerun() on Highways11
+    
+
+16. [**Highways/Highways16**](Vignettes/Highways/Highways16.html)
+
+    - Fitting this model on highways11: speed ~ -1 + Intercept(1) + field()
+    
+17. [**Highways/Highways17**](Vignettes/Highways/Highways17.html)
+
+    - Abort because distance matrix has one less row and column than the number of observations.
+    
+    - Here `day7142128_hour8` is used.
+    
+    - Also tried `day7142128_hour9` but gave some error when using `19Remove_zero_speed_for_long_periods.R` script.
+    
+18. [**Highways/Highways18**](Vignettes/Highways/Highways18.html)
+
+    - This one run fine. **No improvement in the results.**
+    
+    - Here `day7142128_hour16` is used.
+    
+19. [**Highways/Highways19**](Vignettes/Highways/Highways19.html)
+
+    - Abort because of this error: `Error in `[<-`(`*tmp*`, graph.temp$.__enclos_env__$private$data[["__dummy"]],  : subscript out of bounds`
+    
+    - Here `day8152229_hour9` is used.
     
     
+20. [**Highways/Highways20**](Vignettes/Highways/Highways20.html)
+
+    - Abort because the distmatrix dimension do not math with the data.
+    
+    - Here `day6132027_hour8` is used.
+    
+    
+21. [**Highways/Highways21**](Vignettes/Highways/Highways21.html)
+    
+    - Here `day6132027_hour16` is used.
+    
+    - Abort because the distmatrix dimension do not math with the data.
     
     

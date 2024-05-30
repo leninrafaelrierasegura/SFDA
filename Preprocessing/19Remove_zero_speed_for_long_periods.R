@@ -1,10 +1,6 @@
 library(MetricGraph)
 library(dplyr)
-library(TSstudio)
-library(ggplot2)
-library(gganimate)
-library(tsbox)
-
+library(here)
 
 remove_consecutive_zeros <- function(vec) {
   # Initialize a result vector
@@ -37,26 +33,30 @@ remove_consecutive_zeros <- function(vec) {
 # loading the data
 load("~/Desktop/Spring 2024/january_with_ID.RData")
 
+days = c(8,15,22,29)
 
 # just filtering
 aux = january %>%
-  filter(day %in% c(7,14,21,28), hour %in% c(13,14)) %>% # every Thursday of January 2021
-  mutate(day = day/7) %>%
+  filter(day %in% days, hour %in% c(9)) %>% # every Thursday of January 2021
+  #mutate(day = day/7) %>%
   dplyr::select(-PDT, -hour) 
   #distinct(geometry, .keep_all = TRUE) # to remove observations with the same location
 
 buses_ID = unique(aux$ID)
-days = 1:4
+
 
 df = aux %>% 
-  filter(ID == buses_ID[1], day == 1) %>% 
+  filter(ID == buses_ID[1], day == days[1]) %>% 
   arrange(datetime) %>%
   mutate(speed = remove_consecutive_zeros(speed)) %>%
   drop_na(speed)
 
 
-for (i in 2:length(buses_ID)) {
+for (i in 1:length(buses_ID)) {
   for (j in 1:length(days)) {
+    if (i == 1 && j == 1) {
+      next
+    }
     check =  aux %>% filter(ID == buses_ID[i], day == days[j])
     if(nrow(check) > 0){
     tmp = check %>% 
@@ -68,7 +68,16 @@ for (i in 2:length(buses_ID)) {
   }
 }
 
-save(df, file = "Data_files/data_day7142128_hour13and14_with_no_consecutive_zeros.RData")
+newdays = 1:4
+df$day <- newdays[match(df$day, days)]
 
 
+save(df, file = here("Data_files/data_day8152229_hour9_with_no_consecutive_zeros.RData"))
 
+
+# "Data_files/data_day7142128_hour13and14_with_no_consecutive_zeros.RData" # Way before
+# "Data_files/data_day7142128_hour8_with_no_consecutive_zeros.RData"
+# "Data_files/data_day7142128_hour16_with_no_consecutive_zeros.RData"
+# "Data_files/data_day8152229_hour9_with_no_consecutive_zeros.RData"
+# "Data_files/data_day6132027_hour8_with_no_consecutive_zeros.RData"
+# "Data_files/data_day6132027_hour16_with_no_consecutive_zeros.RData"
